@@ -1,5 +1,5 @@
 import React from 'react';
-import { reject, get } from 'lodash';
+import { reject, get, isObject } from 'lodash';
 import APIService from '../../services/APIService';
 import {
   defaultCreatePin, defaultDeletePin, getCurrentUserUsername, isAdminUser
@@ -7,12 +7,14 @@ import {
 import Pins from '../common/Pins';
 import UserHomeDetails from './UserHomeDetails';
 import UserHomeTabs from './UserHomeTabs';
+import NotFound from '../common/NotFound';
 
 class UserHome extends React.Component {
   constructor(props) {
     super(props);
     this.url = this.getURLFromPath(props);
     this.state = {
+      notFound: false,
       user: {},
       pins: [],
       tab: this.getDefaultTabIndex()
@@ -75,10 +77,17 @@ class UserHome extends React.Component {
     const service = this.getUserService()
     if(service) {
       this.setState(
-        { isLoading: true },
+        { isLoading: true, notFound: false },
         () => service
           .get(null, null, {verbose: true})
-          .then(response => this.setState({ user: response.data })))
+          .then(response => {
+            if(get(response, 'detail') === "Not found.")
+              this.setState({isLoading: false, notFound: true, user: {}})
+            else if(!isObject(response))
+              this.setState({isLoading: false}, () => {throw response})
+            else
+              this.setState({ user: response.data, isLoading: false })
+          }))
     }
   }
 
@@ -116,33 +125,39 @@ class UserHome extends React.Component {
   }
 
   render() {
-    const { user, pins } = this.state;
+    const { user, pins, notFound } = this.state;
     const canActOnPins = this.canActOnPins()
     return (
-      <div className="col-md-12">
+      <React.Fragment>
         {
-          user &&
-          <div className="col-md-2 no-right-padding" style={{width: '20%'}}>
-            <UserHomeDetails user={user} />
+          notFound ?
+          <NotFound /> :
+          <div className="col-md-12">
+            {
+              user &&
+              <div className="col-md-2 no-right-padding" style={{width: '20%'}}>
+                <UserHomeDetails user={user} />
+              </div>
+            }
+            <div className='col-md-10 no-side-padding' style={{width: '80%'}}>
+              <Pins
+                pins={pins}
+                onDelete={this.deletePin}
+                canDelete={canActOnPins}
+                onOrderUpdate={this.updatePinOrder}
+              />
+              <UserHomeTabs
+                {...this.state}
+                {...this.props}
+                onTabChange={this.onTabChange}
+                onPinCreate={this.createPin}
+                onPinDelete={this.deletePin}
+                showPin={canActOnPins}
+              />
+            </div>
           </div>
         }
-        <div className='col-md-10 no-side-padding' style={{width: '80%'}}>
-          <Pins
-            pins={pins}
-            onDelete={this.deletePin}
-            canDelete={canActOnPins}
-            onOrderUpdate={this.updatePinOrder}
-          />
-          <UserHomeTabs
-            {...this.state}
-            {...this.props}
-            onTabChange={this.onTabChange}
-            onPinCreate={this.createPin}
-            onPinDelete={this.deletePin}
-            showPin={canActOnPins}
-          />
-        </div>
-      </div>
+      </React.Fragment>
     )
   }
 }

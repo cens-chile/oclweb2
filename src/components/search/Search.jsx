@@ -1,5 +1,4 @@
 import React from 'react';
-import alertifyjs from 'alertifyjs';
 import moment from 'moment';
 import {
   get, set, cloneDeep, merge, forEach, includes, keys, pickBy, size, isEmpty, has, find, isEqual,
@@ -19,9 +18,9 @@ import FilterDrawer from '../common/FilterDrawer';
 import Results from './Results';
 import ResultsTable from './ResultsTable';
 import SortButton from './SortButton';
-import ResultsCountDropDown from '../common/ResultsCountDropDown';
 import PageResultsLabel from './PageResultsLabel';
 import SearchInput from './SearchInput';
+import SearchByAttributeInput from './SearchByAttributeInput';
 import ResourcesHorizontal from './ResourcesHorizontal';
 import ResourceTabs from './ResourceTabs';
 //import Resources from './Resources';
@@ -60,6 +59,8 @@ class Search extends React.Component {
       openFacetsDrawer: false,
       appliedFacets: {},
       viewFilters: {},
+      fhirParams: {},
+      staticParams: {},
       includeRetired: false,
       results: {
         concepts: cloneDeep(resourceResultStruct),
@@ -102,6 +103,9 @@ class Search extends React.Component {
       exactMatch: queryParams.get('exactMatch') || 'off',
       limit: parseInt(queryParams.get('limit')) || get(fixedFilters, 'limit') || DEFAULT_LIMIT,
       viewFilters: this.props.viewFilters || {},
+      sortParams: get(fixedFilters, 'sortParams') || this.state.sortParams,
+      fhirParams: this.props.fhirParams || {},
+      staticParams: this.props.staticParams || {},
     }, this.fetchNewResults)
   }
 
@@ -138,6 +142,34 @@ class Search extends React.Component {
     }
   }
 
+  prepareFhirResponseForState(resource, response, resetItems) {
+    const data = response.data
+    let next = find(data.link, {relation: 'next'})
+    if(next === 'null')
+      next = null
+    let previous = find(data.link, {relation: 'prev'})
+    if(previous === 'null')
+      previous = null
+    let items = get(data, 'entry', [])
+    if(this.state.isInfinite && !resetItems)
+      items = [...this.state.results[resource].items, ...items]
+    const numFound = parseInt(get(data, 'total')) || get(items, 'length') || 0; //1000
+    const numReturned = parseInt(get(items, 'length')) || 0; //10
+    const pageOffset = get(this.state.fhirParams, '_getpagesoffset') || 0; //10
+    const limit = this.state.limit || DEFAULT_LIMIT; //10
+    const pages = Math.ceil(numFound / limit) // 100
+    const pageNumber = pageOffset ? ((pageOffset/limit) + 1) : 1
+    return {
+      total: numFound,
+      pageCount: numReturned,
+      pageNumber: pageNumber,
+      pages: pages,
+      next: next,
+      prev: previous,
+      items: items,
+    }
+  }
+
   prepareResponseForState(resource, response, resetItems) {
     const numFound = parseInt(get(response, 'headers.num_found', 0))
     const numReturned = parseInt(get(response, 'headers.num_returned', 0))
@@ -165,7 +197,7 @@ class Search extends React.Component {
         isLoading: false,
         results: {
           ...this.state.results,
-          [resource]: this.prepareResponseForState(resource, response, resetItems)
+          [resource]: this.props.fhir ? this.prepareFhirResponseForState(resource, response, resetItems) : this.prepareResponseForState(resource, response, resetItems)
         }
       }, () => {
         if(includes(['sources', 'collections'], resource))
@@ -173,7 +205,7 @@ class Search extends React.Component {
       })
     } else {
       this.setState({isLoading: false}, () => {
-        alertifyjs.error('System encountered an error.')
+        throw response
       })
     }
   }
@@ -198,10 +230,7 @@ class Search extends React.Component {
     this.fetchNewResults({searchStr: value, page: 1, exactMatch: exactMatch}, true, true)
   }
 
-  getCurrentResourceTotalResults() {
-    const { resource, results } = this.state
-    return get(results, `${resource}.total`, 0)
-  }
+  onFhirSearch = params => this.setState({fhirParams: params}, this.fetchNewResults)
 
   getFacetQueryParam() {
     const { appliedFacets, viewFilters } = this.state;
@@ -233,26 +262,35 @@ class Search extends React.Component {
     this.setState(newState, () => {
       const {
         resource, searchStr, page, exactMatch, sortParams, updatedSince, limit,
-        includeRetired,
+        includeRetired, fhirParams, staticParams
       } = this.state;
-      const { configQueryParams } = this.props;
-      const queryParams = {
-        q: searchStr || '', page: page, exact_match: exactMatch, limit: limit,
-        includeRetired: includeRetired,
-        verbose: includes(['sources', 'collections', 'organizations', 'users'], resource),
-        ...this.getFacetQueryParam(),
-      };
-      if(updatedSince)
-        queryParams['updatedSince'] = updatedSince
+      const { configQueryParams, noQuery, noHeaders, fhir } = this.props;
+      let queryParams = {};
+      if(!noQuery) {
+        queryParams = {
+          q: searchStr || '', page: page, exact_match: exactMatch, limit: limit,
+          includeRetired: includeRetired,
+          verbose: includes(['sources', 'collections', 'organizations', 'users'], resource),
+          ...this.getFacetQueryParam(),
+        };
+        if(updatedSince)
+          queryParams['updatedSince'] = updatedSince
+      }
       let _resource = resource
       if(_resource === 'organizations')
         _resource = 'orgs'
+      let params = {...staticParams}
+      if(!noQuery)
+        params = {...params, ...queryParams, ...sortParams, ...(configQueryParams || {})}
+      if(fhir)
+        params = {...params, ...fhirParams}
       fetchSearchResults(
         _resource,
-        {...queryParams, ...sortParams, ...(configQueryParams || {})},
+        params,
+        !noHeaders,
         this.props.baseURL,
         null,
-        (response) => this.onSearchResultsLoad(resource, response, resetItems)
+        response => this.onSearchResultsLoad(resource, response, resetItems)
       )
       if(counts && !this.props.nested)
         fetchCounts(resource, queryParams, this.onCountsLoad)
@@ -264,12 +302,31 @@ class Search extends React.Component {
   }
 
   onPageChange = page => {
-    if(page !== this.state.page)
-      this.fetchNewResults({page: page}, false, false)
+    if(page !== this.state.page) {
+      if(this.props.fhir)
+        this.setState({
+          page: page,
+          fhirParams: {
+            ...this.state.fhirParams,
+            _getpagesoffset: ((parseInt(page) - 1) * this.state.limit)
+          }
+        }, () => this.fetchNewResults(null, false, false))
+      else
+        this.fetchNewResults({page: page}, false, false)
+
+    }
   }
 
   onSortChange = params => {
-    this.setState({sortParams: params}, () => this.fetchNewResults(null, false, true))
+    if(this.props.fhir) {
+      const _sort = params.sortAsc ? params.sortAsc : '-' + params.sortDesc;
+      this.setState({
+        sortParams: params,
+        fhirParams: {...this.state.fhirParams, _sort: _sort}
+      }, () => this.fetchNewResults(null, false, true))
+    }
+    else
+      this.setState({sortParams: params}, () => this.fetchNewResults(null, false, true))
   }
 
   hasPrev() {
@@ -291,7 +348,16 @@ class Search extends React.Component {
 
   onResourceChange = resource => {
     const shouldGetCounts = !isEmpty(this.state.appliedFacets);
-    this.setState({resource: resource, appliedFacets: {}}, () => this.fetchNewResults(null, shouldGetCounts, true))
+    let sortParams = this.state.sortParams;
+    if(resource === 'users')
+      sortParams = {sortDesc: 'date_joined'}
+    else
+      sortParams = {sortDesc: 'last_update'}
+
+    this.setState(
+      {resource: resource, appliedFacets: {}, sortParams: sortParams},
+      () => this.fetchNewResults(null, shouldGetCounts, true)
+    )
   }
 
   onDateChange = date => {
@@ -324,13 +390,16 @@ class Search extends React.Component {
 
   getFilterControls() {
     const updatedSinceText = this.getUpdatedSinceText();
-    const totalResults = this.getCurrentResourceTotalResults();
-    const { nested, extraControls } = this.props;
+    const { nested, extraControls, fhir } = this.props;
     const {
-      updatedSince, limit, appliedFacets, resource, includeRetired, isTable, isInfinite,
-      viewFilters
+      updatedSince, appliedFacets, resource, includeRetired, isTable, isInfinite,
+      viewFilters, sortParams
     } = this.state;
     const isDisabledFilters = includes(['organizations', 'users'], resource);
+    const sortDesc = get(sortParams, 'sortDesc')
+    const sortAsc = get(sortParams, 'sortAsc')
+    const sortOn = sortDesc || sortAsc;
+    const sortBy = sortDesc ? 'desc' : 'asc'
     return (
       <span style={{display: 'inline-flex', alignItems: 'center', width: 'max-content'}}>
         {
@@ -342,7 +411,7 @@ class Search extends React.Component {
           </span>
         }
         {
-          resource !== 'references' &&
+          resource !== 'references' && !fhir &&
           <span>
             <span style={{paddingRight: '4px'}}>
               <IncludeRetiredFilterChip applied={includeRetired} onClick={this.onClickIncludeRetired} size={nested ? 'small' : 'medium'} />
@@ -350,22 +419,19 @@ class Search extends React.Component {
             <span style={{paddingRight: '4px'}}>
               <ChipDatePicker onChange={this.onDateChange} label={updatedSinceText} date={updatedSince} size={nested ? 'small' : 'medium'} />
             </span>
-            <span style={{paddingRight: '4px'}}>
+            <span style={{paddingRight: '4px', cursor: isDisabledFilters ? 'not-allowed' : 'pointer'}}>
               <FilterButton count={size(appliedFacets)} onClick={this.toggleFacetsDrawer} disabled={isDisabledFilters} label='More Filters' size={nested ? 'small' : 'medium'} />
             </span>
             {
               !isTable && <span style={{paddingRight: '4px'}}>
-                <SortButton onChange={this.onSortChange} size={nested ? 'small' : 'medium'} />
+                <SortButton onChange={this.onSortChange} size={nested ? 'small' : 'medium'} resource={resource} sortOn={sortOn} sortBy={sortBy} />
               </span>
             }
           </span>
 
         }
-        <span>
-          <ResultsCountDropDown onChange={this.onLimitChange} defaultLimit={limit} total={totalResults} size={nested ? 'small' : 'medium'} />
-        </span>
         {
-          resource !== 'references' &&
+          resource !== 'references' && !fhir &&
           <span style={{paddingLeft: '4px'}}>
             <LayoutToggle isTable={isTable} size={nested ? 'small' : 'medium'} onClick={this.onLayoutChange} />
           </span>
@@ -389,7 +455,10 @@ class Search extends React.Component {
   }
 
   onLimitChange = limit => {
-    this.fetchNewResults({limit: limit}, false, true)
+    if(this.props.fhir)
+      this.setState({limit: limit, fhirParams: {...this.state.fhirParams, _count: limit, _getpagesoffset: 0}}, () => this.fetchNewResults(null, false, false))
+    else
+      this.fetchNewResults({limit: limit}, false, true)
   }
 
   toggleFacetsDrawer = () => {
@@ -408,7 +477,7 @@ class Search extends React.Component {
     const {
       nested, pins, onPinCreate, onPinDelete, showPin, essentialColumns, onReferencesDelete,
       isVersionedObject, parentResource, newResourceComponent, noFilters, noNav, onSelectChange,
-      onCreateSimilarClick, onCreateMappingClick, viewFields, noControls
+      onCreateSimilarClick, onCreateMappingClick, viewFields, noControls, fhir
     } = this.props;
     const {
       resource, results, isLoading, limit, sortParams, openFacetsDrawer, isTable, isInfinite
@@ -423,16 +492,23 @@ class Search extends React.Component {
       <div className='col-sm-12' style={nested ? {padding: '0px'} : {paddingTop: '10px'}}>
         <div className={searchResultsContainerClass} style={!nested ? {marginTop: '5px'} : {}}>
           <div className='col-sm-9 no-side-padding' style={{textAlign: 'center', marginBottom: '5px'}}>
-            <SearchInput
-              {...this.props}
-              onSearch={this.onSearch}
-              exactMatchOnNewLine
-              moreControls={!noFilters && this.getFilterControls()}
-            />
+            {
+              fhir ?
+              <SearchByAttributeInput
+                {...this.props}
+                onSearch={this.onFhirSearch}
+              /> :
+              <SearchInput
+                {...this.props}
+                onSearch={this.onSearch}
+                exactMatchOnNewLine
+                moreControls={!noFilters && this.getFilterControls()}
+              />
+            }
           </div>
           <div className='col-sm-3 no-side-padding flex-vertical-center' style={{marginTop: '8px'}}>
             <span style={{margin: '0 20px', marginTop: '-4px'}}>
-              <PageResultsLabel isInfinite={isInfinite} resource={resource} results={results[resource]} limit={limit} />
+              <PageResultsLabel isInfinite={isInfinite} resource={resource} results={results[resource]} limit={limit} onChange={this.onLimitChange} />
             </span>
             <span>
               {

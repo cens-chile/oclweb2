@@ -1,9 +1,10 @@
 import React from 'react';
 import { CircularProgress } from '@material-ui/core';
+import { includes, get, isObject } from 'lodash';
 import APIService from '../../services/APIService';
 import ConceptHomeHeader from './ConceptHomeHeader';
 import ConceptHomeTabs from './ConceptHomeTabs';
-import { includes } from 'lodash';
+import NotFound from '../common/NotFound';
 
 const TABS = ['details', 'mappings', 'history'];
 
@@ -11,9 +12,12 @@ class ConceptHome extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      notFound: false,
       isLoading: true,
+      isLoadingMappings: false,
       concept: {},
       versions: [],
+      mappings: [],
       tab: this.getDefaultTabIndex(),
     }
   }
@@ -33,9 +37,9 @@ class ConceptHome extends React.Component {
     const { location } = this.props;
 
     if(location.pathname.indexOf('/mappings') > -1)
-      return 1;
+      return 0;
     if(location.pathname.indexOf('/history') > -1)
-      return 2;
+      return 1;
 
     return 0;
   }
@@ -60,15 +64,22 @@ class ConceptHome extends React.Component {
   }
 
   refreshDataByURL() {
-    this.setState({isLoading: true}, () => {
+    this.setState({isLoading: true, notFound: false}, () => {
       APIService.new()
                 .overrideURL(this.getConceptURLFromPath())
-                .get(null, null, {includeInverseMappings: true})
+                .get()
                 .then(response => {
-                  this.setState({isLoading: false, concept: response.data}, () => {
-                    if(this.state.tab === 2)
-                      this.getVersions()
-                  })
+                  if(get(response, 'detail') === "Not found.")
+                    this.setState({isLoading: false, concept: {}, notFound: true})
+                  else if(!isObject(response))
+                    this.setState({isLoading: false}, () => {throw response})
+                  else
+                    this.setState({isLoading: false, concept: response.data}, () => {
+                      if(this.state.tab === 1)
+                        this.getVersions()
+                      else
+                        this.getMappings()
+                    })
                 })
 
     })
@@ -83,9 +94,20 @@ class ConceptHome extends React.Component {
               })
   }
 
+  getMappings() {
+    this.setState({isLoadingMappings: true}, () => {
+      APIService.new()
+                .overrideURL(this.getConceptURLFromPath() + 'mappings/?includeInverseMappings=true&limit=1000')
+                .get()
+                .then(response => {
+                  this.setState({mappings: response.data, isLoadingMappings: false})
+                })
+    })
+  }
+
   onTabChange = (event, value) => {
     this.setState({tab: value}, () => {
-      if(value === 2)
+      if(value === 1)
         this.getVersions()
     })
   }
@@ -98,7 +120,7 @@ class ConceptHome extends React.Component {
   }
 
   render() {
-    const { concept, versions, isLoading, tab } = this.state;
+    const { concept, versions, mappings, isLoadingMappings, isLoading, tab, notFound } = this.state;
     const currentURL = this.getConceptURLFromPath()
     const isVersionedObject = this.isVersionedObject()
 
@@ -107,22 +129,29 @@ class ConceptHome extends React.Component {
         {
           isLoading ?
           <CircularProgress color='primary' /> :
-          <div className='col-md-12 home-container no-side-padding'>
-            <ConceptHomeHeader
-              concept={concept}
-              isVersionedObject={isVersionedObject}
-              versionedObjectURL={this.getVersionedObjectURLFromPath()}
-              currentURL={currentURL}
-            />
-            <ConceptHomeTabs
-              tab={tab}
-              onChange={this.onTabChange}
-              concept={concept}
-              versions={versions}
-              currentURL={currentURL}
-              isVersionedObject={isVersionedObject}
-            />
-          </div>
+          (
+            notFound ?
+            <NotFound /> :
+            <div className='col-md-12 home-container no-side-padding'>
+              <ConceptHomeHeader
+                concept={concept}
+                mappings={mappings}
+                isVersionedObject={isVersionedObject}
+                versionedObjectURL={this.getVersionedObjectURLFromPath()}
+                currentURL={currentURL}
+              />
+              <ConceptHomeTabs
+                tab={tab}
+                onChange={this.onTabChange}
+                concept={concept}
+                versions={versions}
+                mappings={mappings}
+                isLoadingMappings={isLoadingMappings}
+                currentURL={currentURL}
+                isVersionedObject={isVersionedObject}
+              />
+            </div>
+          )
         }
       </div>
     )

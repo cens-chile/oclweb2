@@ -8,7 +8,7 @@ import {
   FileCopy as CopyIcon,
 } from '@material-ui/icons';
 import { get } from 'lodash';
-import { currentUserHasAccess, copyURL, toFullAPIURL } from '../../common/utils';
+import { currentUserHasAccess, isLoggedIn, copyURL, toFullAPIURL } from '../../common/utils';
 import APIService from '../../services/APIService';
 import OwnerButton from '../common/OwnerButton';
 import SourceButton from '../common/SourceButton';
@@ -19,17 +19,20 @@ import ExternalIdLabel from '../common/ExternalIdLabel';
 import CustomAttributesPopup from '../common/CustomAttributesPopup';
 import CommonFormDrawer from '../common/CommonFormDrawer';
 import DownloadButton from '../common/DownloadButton';
+import AddToCollection from '../common/AddToCollection';
 import ConceptIcon from './ConceptIcon';
 import ConceptForm from './ConceptForm';
 
 const ConceptHomeHeader = ({
-  concept, isVersionedObject, versionedObjectURL, currentURL
+  concept, mappings, isVersionedObject, versionedObjectURL, currentURL
 }) => {
   const downloadFileName = isVersionedObject ?
                            `concept-${concept.id}` :
                            `concept-${concept.id}-version-${concept.version}`;
   const isRetired = concept.retired;
   const hasAccess = currentUserHasAccess();
+  const isAuthenticated = isLoggedIn();
+  const resourceRelativeURL = isVersionedObject ? concept.url : concept.version_url;
   const [conceptForm, setConceptForm] = React.useState(false);
   const onRetire = () => {
     const prompt = alertifyjs.prompt()
@@ -129,7 +132,14 @@ const ConceptHomeHeader = ({
                     </Tooltip>
                   )
                 }
-                <DownloadButton resource={concept} filename={downloadFileName} />
+                {
+                  isAuthenticated &&
+                  <AddToCollection
+                    references={[{...concept, url: resourceRelativeURL}]}
+                    iconButton
+                  />
+                }
+                <DownloadButton resource={{...concept, mappings: mappings}} filename={downloadFileName} />
               </ButtonGroup>
             </span>
           </div>

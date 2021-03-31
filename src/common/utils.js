@@ -8,6 +8,7 @@ import {
 } from 'lodash';
 import { DATE_FORMAT, DATETIME_FORMAT } from './constants';
 import APIService from '../services/APIService';
+import { SERVER_CONFIGS } from './serverConfigs';
 
 export const isAtGlobalSearch = () => window.location.hash.includes('#/search') || isAtRoot();
 
@@ -24,12 +25,12 @@ export const formatWebsiteLink = (value, style) => {
       href = 'https://' + href;
 
     return (
-      <a
-        target='_blank'
-        rel="noopener noreferrer"
-        href={href}
-        className="ellipsis-text"
-        style={merge({maxWidth: '100px'}, (style || {}))}>
+        <a
+      target='_blank'
+      rel="noopener noreferrer"
+      href={href}
+      className="ellipsis-text"
+      style={merge({maxWidth: '100px'}, (style || {}))}>
         {value.trim()}
       </a>
     );
@@ -159,8 +160,8 @@ export const isAdminUser = () => {
 export const toObjectArray = obj => isEmpty(obj) ? [] : map(keys(obj), k => pick(obj, k));
 
 export const sortObjectBy = (obj, comparator) => {
-    const _keys = sortBy(keys(obj), key => comparator ? comparator(obj[key], key) : key);
-    return zipObject(_keys, map(_keys, key => obj[key]));
+  const _keys = sortBy(keys(obj), key => comparator ? comparator(obj[key], key) : key);
+  return zipObject(_keys, map(_keys, key => obj[key]));
 }
 
 export const arrayToObject = arr => {
@@ -210,37 +211,37 @@ const handleLookupValuesResponse = (data, callback, attr) => {
 }
 
 export const fetchLocales = callback => {
-  APIService.sources('Locales').concepts().get(null, null, {limit: 1000}).then(response => {
+  APIService.sources('Locales').concepts().get(null, null, {limit: 1000, is_latest: true}).then(response => {
     callback(orderBy(map(reject(response.data, {locale: null}), l => ({id: l.locale, name: `${l.display_name} [${l.locale}]`})), 'name'));});
 }
 
 export const fetchConceptClasses = callback => {
   APIService.sources('Classes').concepts()
-    .get(null, null, {limit: 1000})
+    .get(null, null, {limit: 1000, is_latest: true})
     .then(response => handleLookupValuesResponse(response.data, callback));
 }
 
 export const fetchMapTypes = callback => {
   APIService.sources('MapTypes').concepts()
-    .get(null, null, {limit: 1000})
+    .get(null, null, {limit: 1000, is_latest: true})
     .then(response => handleLookupValuesResponse(response.data, callback));
 }
 
 export const fetchDatatypes = callback => {
   APIService.sources('Datatypes').concepts()
-    .get(null, null, {limit: 1000})
+    .get(null, null, {limit: 1000, is_latest: true})
     .then(response => handleLookupValuesResponse(response.data, callback));
 }
 
 export const fetchNameTypes = callback => {
   APIService.sources('NameTypes').concepts()
-    .get(null, null, {limit: 1000})
+    .get(null, null, {limit: 1000, is_latest: true})
     .then(response => handleLookupValuesResponse(response.data, callback, 'display_name'));
 }
 
 export const fetchDescriptionTypes = callback => {
   APIService.sources('DescriptionTypes').concepts()
-    .get(null, null, {limit: 1000})
+    .get(null, null, {limit: 1000, is_latest: true})
     .then(response => handleLookupValuesResponse(response.data, callback, 'display_name'));
 }
 
@@ -284,33 +285,33 @@ export const formatByteSize = bytes => {
 
 
 export const memorySizeOf = (obj, format=true) => {
-    var bytes = 0;
+  var bytes = 0;
 
-    const sizeOf = obj => {
-        if(obj !== null && obj !== undefined) {
-            switch(typeof obj) {
-            case 'number':
-                bytes += 8;
-                break;
-            case 'string':
-                bytes += obj.length * 2;
-                break;
-            case 'boolean':
-                bytes += 4;
-                break;
-            case 'object':
-                var objClass = Object.prototype.toString.call(obj).slice(8, -1);
-                if(objClass === 'Object' || objClass === 'Array') {
-                    for(var key in obj) {
-                        if(!obj.hasOwnProperty(key)) continue;
-                        sizeOf(obj[key]);
-                    }
-                } else bytes += obj.toString().length * 2;
-                break;
-            }
-        }
-        return bytes;
-    };
+  const sizeOf = obj => {
+    if(obj !== null && obj !== undefined) {
+      switch(typeof obj) {
+      case 'number':
+        bytes += 8;
+        break;
+      case 'string':
+        bytes += obj.length * 2;
+        break;
+      case 'boolean':
+        bytes += 4;
+        break;
+      case 'object':
+        var objClass = Object.prototype.toString.call(obj).slice(8, -1);
+        if(objClass === 'Object' || objClass === 'Array') {
+          for(var key in obj) {
+            if(!obj.hasOwnProperty(key)) continue;
+            sizeOf(obj[key]);
+          }
+        } else bytes += obj.toString().length * 2;
+        break;
+      }
+    }
+    return bytes;
+  };
 
 
   const byteSize = sizeOf(obj);
@@ -347,6 +348,8 @@ export const isValidPassword = (password, strength, minStrength = 3) => {
 
 export const getUserInitials = user => {
   user = user || getCurrentUser();
+  if(!user)
+    return '';
 
   let result = '';
   const first_name = get(user, 'first_name', '').trim();
@@ -360,6 +363,49 @@ export const getUserInitials = user => {
     result = first_name[0];
   if(hasValidLastName)
     result += last_name[0];
+  if(result.length == 1 && hasValidFirstName)
+    result += first_name[1];
 
   return result.toUpperCase();
 }
+
+export const jsonifySafe = data => {
+  if(!data)
+    return data;
+
+  try {
+    return JSON.parse(data);
+  } catch (err) {
+    return data;
+  }
+}
+
+export const getSelectedServerConfig = () => {
+  const serverConfig = localStorage.getItem('server');
+  if(serverConfig)
+    return JSON.parse(serverConfig);
+}
+
+export const getAppliedServerConfig = () => {
+  const selectedConfig = getSelectedServerConfig();
+
+  if(selectedConfig)
+    return selectedConfig;
+
+  const APIURL = window.API_URL || process.env.API_URL;
+  return find(SERVER_CONFIGS, {url: APIURL});
+}
+
+export const isServerSwitched = () => {
+  const selectedConfig = getSelectedServerConfig();
+  return selectedConfig && selectedConfig.url !== (window.API_URL || process.env.API_URL);
+};
+
+export const getDefaultServerConfig = () => {
+  const APIURL = window.API_URL || process.env.API_URL;
+  return find(SERVER_CONFIGS, {url: APIURL});
+}
+
+export const canSwitchServer = () => Boolean(getSelectedServerConfig() || get(getCurrentUser(), 'is_staff'));
+
+export const isFHIRServer = () => get(getAppliedServerConfig(), 'type') === 'fhir';

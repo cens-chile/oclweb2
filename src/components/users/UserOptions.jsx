@@ -1,34 +1,33 @@
 import React from 'react';
 import alertifyjs from 'alertifyjs';
 import {
-  Paper, IconButton, Popper, MenuItem, MenuList, Grow, ClickAwayListener, Tooltip
+  Paper, IconButton, Popper, Grow, ClickAwayListener, Tooltip,
+  List, ListItem, ListItemIcon, ListItemText, Chip, Divider, Button, Collapse
 } from '@material-ui/core';
 import {
-  ExitToApp as LogoutIcon, Edit as EditIcon, Person as PersonIcon
+  ExitToApp as LogoutIcon, Edit as EditIcon, AccountCircle as AccountIcon,
+  Storage as ServerIcon, ExpandLess as LessIcon, ExpandMore as MoreIcon,
 } from '@material-ui/icons';
-import { getCurrentUser, getUserInitials } from '../../common/utils';
+import { get } from 'lodash';
+import { getCurrentUser, getUserInitials, getAppliedServerConfig, canSwitchServer } from '../../common/utils';
 import CommonFormDrawer from '../common/CommonFormDrawer';
 import UserForm from './UserForm';
+import ServerConfigList from '../common/ServerConfigList';
 
-const onLogoutClick = () => {
+const onLogoutClick = msg => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  alertifyjs.success('You have signed out.')
+  alertifyjs.success(msg || 'You have signed out.')
   window.location.hash = '#/'
   window.location.reload()
 }
 
-const OPTIONS = [
-  {id: 'home', label: 'Home', icon: <PersonIcon fontSize='small' style={{marginRight: '10px'}}/>},
-  {id: 'edit', label: 'Edit Profile', icon: <EditIcon fontSize='small' style={{marginRight: '10px'}}/>},
-  {id: 'logout', label: 'Logout', icon: <LogoutIcon fontSize='small' style={{marginRight: '10px'}} />},
-]
-
 const UserOptions = () => {
   const initials = getUserInitials()
-  const user = getCurrentUser()
+  const user = getCurrentUser() || {}
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState(false);
+  const [serverOpen, setServerOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
   const handleToggle = () => setOpen((prevOpen) => !prevOpen);
   const handleClose = event => {
@@ -37,30 +36,41 @@ const UserOptions = () => {
 
     setOpen(false);
   };
-  const onOptionClick = option => {
-    if(option === 'logout')
-      onLogoutClick()
-    if(option === 'edit')
-      setForm(true)
-    if(option === 'home')
-      window.location.hash = `${user.url}`
+  const onHomeClick = event => {
+    event.persist();
+    handleClose(event);
+    window.location.hash = user.url
+  };
+  const onEditClick = event => {
+    event.persist();
+    handleClose(event);
+    setForm(true);
   }
+  const username = get(user, 'username');
+  const displayName = get(user, 'name') || username;
+  const serverConfig = getAppliedServerConfig();
 
   return (
     <React.Fragment>
-      <Tooltip title={user.username}>
-        <IconButton
-          ref={anchorRef}
-          aria-controls={open ? 'split-button-menu' : undefined}
-          aria-expanded={open ? 'true' : undefined}
-          aria-label="select merge strategy"
-          aria-haspopup="menu"
-          onClick={handleToggle}
-          touch='true'
-          className='user-info-icon'
-        >
-          {initials}
-        </IconButton>
+      <Tooltip title={username || ''}>
+        {
+          user.logo_url ?
+          <IconButton touch='true' onClick={handleToggle} ref={anchorRef}>
+            <img src={user.logo_url} className='user-img-small' />
+          </IconButton> :
+          <IconButton
+            ref={anchorRef}
+            aria-controls={open ? 'split-button-menu' : undefined}
+            aria-expanded={open ? 'true' : undefined}
+            aria-label="select merge strategy"
+            aria-haspopup="menu"
+            onClick={handleToggle}
+            touch='true'
+            className='user-info-icon'
+            >
+            {initials}
+          </IconButton>
+        }
       </Tooltip>
       <Popper open={open} anchorEl={anchorRef.current} role={undefined} transition disablePortal style={{zIndex: 1}}>
         {({ TransitionProps, placement }) => (
@@ -70,18 +80,54 @@ const UserOptions = () => {
               transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom',
             }}
             >
-            <Paper>
+            <Paper style={{minWidth: '330px', border: '1px solid lightgray'}}>
               <ClickAwayListener onClickAway={handleClose}>
-                <MenuList id="split-button-menu">
+                <List style={{paddingBottom: 0, paddingTop: 0}}>
+                  <ListItem>
+                    <ListItemText style={{textAlign: 'center'}}>
+                      <div className='col-md-12'>
+                        {
+                          user.logo_url ?
+                          <img src={user.logo_url} className='user-img-medium' /> :
+                          <AccountIcon style={{width: '80px', height: '80px', color: 'gray'}} />
+                        }
+                      </div>
+                      <ListItemText className='list-item-text-bold-primary' primary={displayName} secondary={user.email} />
+                      <Chip className='manage-account-chip' label={<span style={{fontWeight: 'bold'}}>Manage your OCL Account</span>} onClick={onHomeClick} />
+                    </ListItemText>
+                  </ListItem>
+                  <Divider />
+                  <Tooltip placement='left' title='Edit Profile'>
+                    <ListItem className='user-option-list-item' onClick={onEditClick}>
+                      <ListItemIcon style={{minWidth: 'auto', marginRight: '15px'}}>
+                        <EditIcon fontSize='small' />
+                      </ListItemIcon>
+                      <ListItemText className='list-item-text' primary={displayName} secondary={user.email} />
+                    </ListItem>
+                  </Tooltip>
+                  <Divider />
                   {
-                    OPTIONS.map(option => (
-                      <MenuItem key={option.id} onClick={() => onOptionClick(option.id)}>
-                        {option.icon}
-                        {option.label}
-                      </MenuItem>
-                    ))
+                    canSwitchServer() &&
+                    <Tooltip placement='left' title='Switch Server'>
+                      <ListItem className='user-option-list-item' onClick={() => setServerOpen(!serverOpen)}>
+                        <ListItemIcon style={{minWidth: 'auto', marginRight: '15px'}}>
+                          <ServerIcon fontSize='small' />
+                        </ListItemIcon>
+                        <ListItemText className='list-item-text' primary='Switch Server' secondary={get(serverConfig, 'name')} />
+                        {serverOpen ? <LessIcon /> : <MoreIcon />}
+                      </ListItem>
+                    </Tooltip>
                   }
-                </MenuList>
+                  <Collapse in={serverOpen}>
+                    <ServerConfigList onClose={() => setOpen(false)}/>
+                  </Collapse>
+                  <Divider />
+                  <ListItem style={{display: 'flex', justifyContent: 'center', padding: '16px'}}>
+                    <Button size='small' startIcon={<LogoutIcon fontSize='inherit' color='inherit' />} variant='outlined' onClick={onLogoutClick}>
+                      Sign Out
+                    </Button>
+                  </ListItem>
+                </List>
               </ClickAwayListener>
             </Paper>
           </Grow>

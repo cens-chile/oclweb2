@@ -21,7 +21,7 @@ export const ALL_COLUMNS = {
     {id: 'owner', label: 'Owner', value: 'owner', sortOn: 'owner', renderer: concept => <OwnerChip ownerType={concept.owner_type} owner={concept.owner} />, essential: false},
     {id: 'parent', label: 'Source', value: 'source', sortOn: 'source', essential: false},
     {id: 'id', label: 'ID', value: 'id', sortOn: 'id', className: 'small'},
-    {id: 'name', label: 'Name', value: 'display_name', sortOn: 'name', renderer: concept => (concept.retired ? <span className='retired'>{concept.display_name}</span> : <span>{concept.display_name}</span>), className: 'medium'},
+    {id: 'name', label: 'Name', value: 'display_name', sortOn: 'name', renderer: concept => (concept.retired ? <span className='retired'>{concept.display_name}</span> : <span>{concept.display_name}</span>), className: 'medium', sortBy: 'asc'},
     {id: 'class', label: 'Class', value: 'concept_class', sortOn: 'concept_class'},
     {id: 'datatype', label: 'Datatype', value: 'datatype', sortOn: 'datatype'},
     {id: 'updatedOn', label: 'UpdatedOn', value: 'version_created_on', formatter: formatDate, sortOn: 'last_update'},
@@ -38,10 +38,10 @@ export const ALL_COLUMNS = {
   sources: [
     {id: 'owner', label: 'Owner', value: 'owner', sortOn: 'owner', renderer: source => <OwnerChip ownerType={source.owner_type} owner={source.owner} />},
     {id: 'id', label: 'ID', value: 'short_code', sortOn: 'mnemonic'},
-    {id: 'name', label: 'Name', value: 'name', sortOn: 'name'},
+    {id: 'name', label: 'Name', value: 'name', sortOn: 'name', sortBy: 'asc'},
     {id: 'sourceType', label: 'Type', value: 'source_type', sortOn: 'source_type'},
     {id: 'uuid', label: 'UUID', value: 'uuid', sortable: false},
-    {id: 'full_name', label: 'Full Name', value: 'full_name', sortOn: 'full_name'},
+    {id: 'full_name', label: 'Full Name', value: 'full_name', sortOn: 'full_name', sortBy: 'asc'},
     {id: 'description', label: 'Description', value: 'description', sortable: false},
     {id: 'public_access', label: 'Public Access', value: 'public_access', sortable: false},
     {id: 'default_locale', label: 'Default Locale', value: 'default_locale', sortable: false},
@@ -57,9 +57,9 @@ export const ALL_COLUMNS = {
   collections: [
     {id: 'owner', label: 'Owner', value: 'owner', sortOn: 'owner', renderer: coll => <OwnerChip ownerType={coll.owner_type} owner={coll.owner} />},
     {id: 'id', label: 'ID', value: 'short_code', sortOn: 'mnemonic'},
-    {id: 'name', label: 'Name', value: 'name', sortOn: 'name'},
+    {id: 'name', label: 'Name', value: 'name', sortOn: 'name', sortBy: 'asc'},
     {id: 'collectionType', label: 'Type', value: 'collection_type', sortOn: 'collection_type'},
-    {id: 'full_name', label: 'Full Name', value: 'full_name', sortOn: 'full_name'},
+    {id: 'full_name', label: 'Full Name', value: 'full_name', sortOn: 'full_name', sortBy: 'asc'},
     {id: 'uuid', label: 'UUID', value: 'uuid', sortable: false},
     {id: 'description', label: 'Description', value: 'description', sortable: false},
     {id: 'public_access', label: 'Public Access', value: 'public_access', sortable: false},
@@ -74,12 +74,12 @@ export const ALL_COLUMNS = {
   ],
   organizations: [
     {id: 'id', label: 'ID', value: 'id', sortOn: 'mnemonic', renderer: org => <OwnerChip ownerType='Organization' owner={org.id} />},
-    {id: 'name', label: 'Name', value: 'name', sortOn: 'name'},
+    {id: 'name', label: 'Name', value: 'name', sortOn: 'name', sortBy: 'asc'},
     {id: 'createdOn', label: 'Created On', value: 'created_on', formatter: formatDate, sortOn: 'created_on'},
   ],
   users: [
-    {id: 'username', label: 'Username', value: 'username', sortOn: 'username', renderer: user => <OwnerChip ownerType='user' owner={user.username} />},
-    {id: 'name', label: 'Name', value: 'name', sortOn: 'name'},
+    {id: 'username', label: 'Username', value: 'username', sortOn: 'username', renderer: user => <OwnerChip ownerType='user' owner={user.username} />, sortBy: 'asc'},
+    {id: 'name', label: 'Name', value: 'name', sortOn: 'name', sortBy: 'asc'},
     {id: 'date_joined', label: 'Joined On', value: 'date_joined', formatter: formatDate, sortOn: 'date_joined'},
     {id: 'email', label: 'Email', value: 'email', sortable: false},
     {id: 'company', label: 'Company', value: 'company'},
@@ -89,6 +89,16 @@ export const ALL_COLUMNS = {
   ],
   references: [
     {id: 'expression', label: 'Reference', value: 'expression', sortable: false, renderer: reference => <ReferenceChip {...reference} />},
+  ],
+  CodeSystem: [
+    {id: '_id', label: 'ID', value: 'resource.id', sortOn: '_id', sortBy: 'asc'},
+    {id: 'url', label: 'Canonical URL', value: 'resource.url', sortable: false},
+    {id: 'name', label: 'Name', value: 'resource.name', sortOn: 'name', sortBy: 'asc'},
+    {id: 'version', label: 'Latest Version', value: 'resource.version', sortOn: 'version', sortBy: 'asc'},
+    {id: 'status', label: 'Status', value: 'resource.status', sortOn: 'status', sortBy: 'asc'},
+    {id: 'content', label: 'Content', value: 'resource.content', sortOn: 'content', sortBy: 'asc'},
+    {id: 'date', label: 'Release Date', value: 'resource.date', sortOn: 'date', formatter: formatDate},
+    {id: 'publisher', label: 'Publisher', value: 'resource.publisher', sortOn: 'publisher', sortBy: 'asc'},
   ]
 };
 
@@ -114,6 +124,15 @@ const CONCEPT_CONTAINER_TAGS = [
     label: 'Versions',
     icon: <TreeIcon fontSize='small' style={TAG_ICON_STYLES} />,
     hrefAttr: 'versions_url'
+  },
+]
+const CODE_SYSTEM_TAGS = [
+  {
+    id: 'count',
+    value: 'resource.count',
+    label: 'Concepts',
+    icon: <LocalOfferIcon fontSize='small' style={TAG_ICON_STYLES} />,
+    text: true
   },
 ]
 const SOURCE_TAG = {
@@ -154,7 +173,8 @@ export const TAGS = {
     },
     SOURCE_TAG,
     COLLECTION_TAG,
-  ]
+  ],
+  CodeSystem: [...CODE_SYSTEM_TAGS],
 }
 export const FACET_ORDER = {
   concepts: ['owner', 'ownerType', 'source', 'conceptClass', 'datatype', 'locale', 'retired', 'collection_membership'],
@@ -164,4 +184,13 @@ export const FACET_ORDER = {
     'toConceptOwner', 'toConceptOwnerType', 'toConceptSource', 'toConcept',
     'retired', 'collection_membership',
   ]
+}
+
+export const SORT_ATTRS = {
+  concepts: ['score', 'last_update', 'id', 'name', 'concept_class', 'datatype', 'source', 'owner'],
+  mappings: ['score', 'last_update', 'id', 'map_type', 'source', 'owner'],
+  users: ['score', 'username', 'date_joined', 'company', 'location'],
+  organizations: ['score', 'last_update', 'name', 'mnemonic'],
+  sources: ['score', 'last_update', 'mnemonic', 'source_type', 'name', 'owner', 'canonical_url'],
+  collections: ['score', 'last_update', 'mnemonic', 'collection_type', 'name', 'owner', 'canonical_url'],
 }

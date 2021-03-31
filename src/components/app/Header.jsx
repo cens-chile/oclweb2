@@ -2,7 +2,8 @@ import React from 'react';
 import clsx from 'clsx';
 import {
   AppBar, Toolbar, Typography, Button, Drawer, CssBaseline, List, Divider, IconButton,
-  ListItem, ListItemText, Collapse, ListItemIcon, Tooltip
+  ListItem, ListItemText, Collapse, ListItemIcon, Tooltip, Paper,
+  Popper, Grow, ClickAwayListener
 } from '@material-ui/core';
 import {
   Menu as MenuIcon,
@@ -11,13 +12,16 @@ import {
 } from '@material-ui/icons';
 import { makeStyles } from '@material-ui/core/styles';
 import { map, isEmpty } from 'lodash';
-import { isAtGlobalSearch, isLoggedIn } from '../../common/utils';
+import { isAtGlobalSearch, isLoggedIn, isServerSwitched, canSwitchServer } from '../../common/utils';
 import { WHITE, BLACK } from '../../common/constants';
 import SearchInput from '../search/SearchInput';
 import UserOptions from '../users/UserOptions';
 import { OPTIONS, MARKETING_SITE_URL } from './MenuOptions.jsx';
+import Feedback from '../common/Feedback';
+import ServerConfigsChip from '../common/ServerConfigsChip';
 
 const drawerWidth = 250;
+
 const useStyles = makeStyles((theme) => ({
   root: {
     display: 'flex',
@@ -77,6 +81,8 @@ const useStyles = makeStyles((theme) => ({
 
 
 const Header = props => {
+  const communityAnchorRef = React.useRef(null);
+  const toolsAnchorRef = React.useRef(null);
   const [open, setOpen] = React.useState(false);
   const classes = useStyles();
   const authenticated = isLoggedIn()
@@ -88,6 +94,7 @@ const Header = props => {
       setNestedTools(false)
     setNestedCommunity(value)
   };
+
   const toggleNestedTools = () => {
     const value = !nestedTools
     if(value)
@@ -95,10 +102,21 @@ const Header = props => {
     setNestedTools(value)
   };
 
+  const handleCloseNested = (event, anchorRef, toggleFunc) => {
+    if (anchorRef.current && anchorRef.current.contains(event.target))
+      return;
+
+    toggleFunc();
+  };
+
   const toggleOpen = () => setOpen(prevOpen => {
     const newOpen = !prevOpen
     props.onOpen(newOpen)
     setTimeout(() => window.dispatchEvent(new CustomEvent("resize")), 300)
+    if(!newOpen) {
+      setNestedTools(false)
+      setNestedCommunity(false)
+    }
     return newOpen
   })
 
@@ -132,16 +150,20 @@ const Header = props => {
               <SearchInput {...props} />
             }
           </div>
-          <div className='col-sm-4 pull-right no-side-padding' style={{textAlign: 'right'}}>
+          <div className='col-sm-4 pull-right no-side-padding'style={{textAlign: 'right'}}>
             {
-              authenticated ?
-              <span style={{marginLeft: '10px'}}>
-                <UserOptions />
-              </span>:
-              <Button className='primary-btn' href="/#/accounts/login" color='primary' variant='contained'>
-                Sign In
-              </Button>
+              canSwitchServer() && isServerSwitched() &&
+              <ServerConfigsChip style={{marginRight: '20px'}} />
             }
+              {
+                authenticated ?
+                <span style={{marginLeft: '10px'}}>
+                  <UserOptions />
+                </span>:
+                <Button className='primary-btn' href="/#/accounts/login" color='primary' variant='contained'>
+                  Sign In
+                </Button>
+              }
           </div>
         </Toolbar>
       </AppBar>
@@ -219,6 +241,7 @@ const Header = props => {
                   )
                 })
               }
+              <Feedback mainButtonLabel='Feedback' containerClassName='feedback-div-open' />
             </List>
           </div>
         </Drawer> :
@@ -247,7 +270,18 @@ const Header = props => {
           <List>
             {
               map(OPTIONS, option => {
-                const { href, label, selected, icon } = option;
+                const { href, label, selected, icon, nested } = option;
+                const hasNested = !isEmpty(nested);
+                const isCommunity = label === 'Community';
+                const isTools = label === 'Tools';
+                const toggleFunc = isCommunity ? toggleNestedCommunity : toggleNestedTools;
+                const toggleState = isCommunity ? nestedCommunity : nestedTools;
+                let anchorRef;
+                if(isCommunity)
+                  anchorRef = communityAnchorRef
+                if(isTools)
+                  anchorRef = toolsAnchorRef
+
                 return (
                   <React.Fragment key={label}>
                     <Tooltip title={label} placement='right'>
@@ -257,18 +291,60 @@ const Header = props => {
                         component="a"
                         target='_blank'
                         selected={selected}
-                        href={href}
+                        href={hasNested ? undefined : href}
                         style={selected ? {padding: '16px 16px', backgroundColor: 'rgba(51, 115, 170, 0.1)'} : {padding: '16px 16px'}}
+                        onClick={hasNested ? toggleFunc : undefined}
+                        ref={anchorRef}
                       >
                         <ListItemIcon>
                           {icon}
                         </ListItemIcon>
                       </ListItem>
                     </Tooltip>
+                    {
+                      anchorRef && toggleState &&
+                      <Popper
+                        open={toggleState}
+                        anchorEl={anchorRef.current}
+                        transition
+                        className='menu-popper-right'
+                        placement='right'
+                        >
+                        {({ TransitionProps }) => (
+                          <Grow {...TransitionProps}>
+                            <Paper>
+                              <ClickAwayListener onClickAway={event => handleCloseNested(event, anchorRef, toggleFunc)}>
+                                <List>
+                                  {
+                                    nested.map(nestedOption => (
+                                      <ListItem
+                                        className='btn'
+                                        button
+                                        component="a"
+                                        target='_blank'
+                                        key={nestedOption.label}
+                                        href={nestedOption.href}
+                                        style={{padding: '12px'}}
+                                        >
+                                        <ListItemIcon style={{minWidth: '35px'}}>
+                                          {nestedOption.icon}
+                                        </ListItemIcon>
+                                        <ListItemText primary={nestedOption.label} />
+                                      </ListItem>
+                                    ))
+                                  }
+                                </List>
+                              </ClickAwayListener>
+                            </Paper>
+                          </Grow>
+                        )}
+                      </Popper>
+                    }
                   </React.Fragment>
                 )
               })
             }
+            <Feedback mainButtonLabel={false} containerClassName='feedback-div' />
           </List>
         </Drawer>
 

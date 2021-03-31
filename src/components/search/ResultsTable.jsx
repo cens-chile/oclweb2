@@ -33,6 +33,7 @@ import ConceptHome from '../concepts/ConceptHome';
 import MappingHome from '../mappings/MappingHome';
 import { ALL_COLUMNS, TAGS } from './ResultConstants'
 import SelectedResourceControls from './SelectedResourceControls';
+import CodeSystem from '../fhir/CodeSystem';
 
 const RESOURCE_DEFINITIONS = {
   references: {
@@ -89,6 +90,15 @@ const RESOURCE_DEFINITIONS = {
     tags: TAGS.users,
     expandible: false,
   },
+  CodeSystem: {
+    headBgColor: GREEN,
+    headTextColor: WHITE,
+    columns: ALL_COLUMNS.CodeSystem.slice(0, 8),
+    tagWaitAttribute: 'resource',
+    tags: TAGS.CodeSystem,
+    expandible: true,
+    tabs: ['Details', 'Copyright'],
+  }
 }
 
 const getValue = (item, column) => {
@@ -223,6 +233,7 @@ const ExpandibleRow = props => {
   const [tab, setTab] = React.useState(0);
   const [selected, setSelected] = React.useState(isSelected);
   const isConceptContainer = includes(['sources', 'collections'], resource);
+  const isCodeSystem = resource === 'CodeSystem';
   const isPublic = includes(['view', 'edit'], get(item, 'public_access', '').toLowerCase()) && isConceptContainer;
   const pinId = get(find(pins, {resource_uri: item.url}), 'id');
 
@@ -299,7 +310,7 @@ const ExpandibleRow = props => {
   }
 
   const onRowClick = event => {
-    if(resource === 'references')
+    if(includes(['references', 'CodeSystem'], resource))
       return
     event.stopPropagation();
     event.preventDefault()
@@ -392,6 +403,19 @@ const ExpandibleRow = props => {
     window.open('#' + _url, '_blank')
   }
 
+  const getTag = (tag, item) => {
+    return (
+      <Tooltip title={tag.label} key={tag.id}>
+        <div style={{fontSize: '14px', lineHeight: '0px', marginBottom: '2px'}}>
+          <div className='flex-vertical-center'>
+            <span>{tag.icon}</span>
+            <span style={{padding: '2px'}}>{`${get(item, tag.value, '0').toLocaleString()}`}</span>
+          </div>
+        </div>
+      </Tooltip>
+    )
+  }
+
   return (
     <React.Fragment>
       <TableRow
@@ -436,16 +460,9 @@ const ExpandibleRow = props => {
             {
               resourceDefinition.tagWaitAttribute && !has(item, resourceDefinition.tagWaitAttribute) ?
               <CircularProgress style={{width: '20px', height: '20px'}} /> :
-              map(resourceDefinition.tags, tag => (
+              map(resourceDefinition.tags, tag => tag.text ? getTag(tag, item) : (
                 <Link key={tag.id} to='' onClick={event => navigateTo(event, get(item, tag.hrefAttr))}>
-                  <Tooltip title={tag.label}>
-                    <div style={{fontSize: '14px', lineHeight: '0px', marginBottom: '2px'}}>
-                      <div className='flex-vertical-center'>
-                        <span>{tag.icon}</span>
-                        <span style={{padding: '2px'}}>{`${get(item, tag.value, '0').toLocaleString()}`}</span>
-                      </div>
-                    </div>
-                  </Tooltip>
+                  {getTag(tag, item)}
                 </Link>
               ))
             }
@@ -502,6 +519,18 @@ const ExpandibleRow = props => {
                     tab === resourceDefinition.tabs.indexOf('Descriptions') &&
                     <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
                       <LocalesTable locales={descriptions} isDescription />
+                    </div>
+                  }
+                  {
+                    isCodeSystem && tab === resourceDefinition.tabs.indexOf('Copyright') &&
+                    <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
+                      <div className="col-md-12" style={{padding: '20px'}} dangerouslySetInnerHTML={{__html: item.resource.copyright}} />
+                    </div>
+                  }
+                  {
+                    isCodeSystem && tab === resourceDefinition.tabs.indexOf('Details') &&
+                    <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
+                      <CodeSystem {...item} style={{padding: '20px'}} />
                     </div>
                   }
                   {
@@ -576,11 +605,12 @@ const ResultsTable = (
                                          setSelectedList(without(selectedList, id));
   const getOppositeOrder = order => order === 'asc' ? 'desc' : 'asc';
   const onSort = (event, columnId) => {
-    let newOrder = 'desc';
+    const column = find(resourceDefinition.columns, {id: columnId})
+    let newOrder = get(column, 'sortBy') || 'desc';
     if(orderBy === columnId)
       newOrder = getOppositeOrder(order)
 
-    const sortOn = get(find(resourceDefinition.columns, {id: columnId}), 'sortOn', 'last_update')
+    const sortOn = get(column, 'sortOn', 'last_update')
     let sortQuery = {sortDesc: sortOn}
     if(newOrder === 'asc')
       sortQuery = {sortAsc: sortOn}
@@ -655,7 +685,7 @@ const ResultsTable = (
                           <TableSortLabel
                             className='table-sort-label-white'
                             active={orderBy === column.id}
-                            direction={orderBy === column.id ? order : 'desc'}
+                            direction={orderBy === column.id ? order : (column.sortBy || 'desc')}
                             onClick={(event) => onSort(event, column.id)}
                             style={{color: theadTextColor}}
                           >
@@ -681,9 +711,9 @@ const ResultsTable = (
               </TableHead>
               <TableBody>
                 {
-                  map(results.items, item => (
+                  map(results.items, (item, index) => (
                     <ExpandibleRow
-                      key={item.uuid || item.id}
+                      key={item.uuid || item.id || index}
                       item={item}
                       resource={resource}
                       resourceDefinition={resourceDefinition}

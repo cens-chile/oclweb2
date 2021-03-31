@@ -60,12 +60,14 @@ class ConceptContainerForm extends React.Component {
 
   componentDidMount() {
     fetchLocales(locales => this.setState({locales: locales}))
-    const { edit, resource } = this.props
+    const { edit, resource, newCollectionProps } = this.props
 
     this.setState({typeAttr: this.isSource() ? 'source_type' : 'collection_type'}, () => {
       if(edit && resource)
         this.setFieldsForEdit()
     })
+    if(get(newCollectionProps, 'name'))
+      this.setState({fields: {...this.state.fields, name: newCollectionProps.name}})
   }
 
   isSource() {
@@ -114,7 +116,7 @@ class ConceptContainerForm extends React.Component {
     jsonAttrs.forEach(attr => this.setJSONValue(resource, newState, attr))
     newState.fields.supported_locales = isArray(resource.supported_locales) ? resource.supported_locales.join(',') : resource.supported_locales;
 
-    newState.custom_validation_schema = get(resource, 'custom_validation_schema') || 'None';
+    newState.fields.custom_validation_schema = get(resource, 'custom_validation_schema') || 'None';
     newState.fields[typeAttr] = get(resource, typeAttr, '') || '';
     newState[`selected_${typeAttr}`] = {id: resource[typeAttr], name: resource[typeAttr]}
     newState.selected_default_locale = {id: resource.default_locale, name: resource.default_locale}
@@ -215,7 +217,7 @@ class ConceptContainerForm extends React.Component {
   }
 
   handleSubmitResponse(response) {
-    const { edit, reloadOnSuccess, onCancel, resourceType } = this.props
+    const { edit, reloadOnSuccess, onCancel, resourceType, onSuccess } = this.props
     if(response.status === 201 || response.status === 200) { // success
       const verb = edit ? 'updated' : 'created'
       const successMsg = `Successfully ${verb} ${resourceType}`;
@@ -224,6 +226,8 @@ class ConceptContainerForm extends React.Component {
       alertifyjs.success(message, 1, () => {
         if(reloadOnSuccess)
           window.location.reload()
+        if(onSuccess)
+          onSuccess(response.data)
       })
     } else { // error
       const genericError = get(response, '__all__')

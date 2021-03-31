@@ -4,7 +4,7 @@ import {
   Person as PersonIcon,
   FileCopy as CopyIcon,
 } from '@material-ui/icons';
-import { includes, startCase, get } from 'lodash';
+import { includes, startCase, get, merge } from 'lodash';
 import APIService from '../../services/APIService';
 import {
   formatDate, currentUserToken, formatWebsiteLink, copyToClipboard
@@ -13,6 +13,7 @@ import HeaderLogo from '../common/HeaderLogo';
 
 const UserHomeDetails = ({ user, isLoading }) => {
   const [logoURL, setLogoURL] = React.useState(user.logo_url)
+  const [uploading, setUploading] = React.useState(false);
 
   React.useEffect(() => {
     if(user.logo_url)
@@ -24,11 +25,19 @@ const UserHomeDetails = ({ user, isLoading }) => {
     name = '';
 
   const onLogoUpload = (base64, name) => {
+    setUploading(true)
     APIService.new().overrideURL(user.url).appendToUrl('logo/')
               .post({base64: base64, name: name})
               .then(response => {
-                if(get(response, 'status') === 200)
-                  setLogoURL(get(response, 'data.logo_url', logoURL))
+                if(get(response, 'status') === 200){
+                  const url = get(response, 'data.logo_url', logoURL)
+                  setLogoURL(url)
+                  localStorage.setItem(
+                    'user',
+                    JSON.stringify(merge(JSON.parse(localStorage.user), {logo_url: url}))
+                  )
+                }
+                setUploading(false)
               })
   }
   const token = currentUserToken();
@@ -36,7 +45,7 @@ const UserHomeDetails = ({ user, isLoading }) => {
   return (
     <div className="col-md-12 no-side-padding">
       {
-        isLoading ?
+        (isLoading || uploading) ?
         <CircularProgress color='primary' style={{marginTop: '50px', marginLeft: '50px'}} /> :
         <div className="col-md-12 no-side-padding">
           <div className='home-icon'>
@@ -53,23 +62,23 @@ const UserHomeDetails = ({ user, isLoading }) => {
             <small>{user.username}</small>
           </h2>
           <Divider style={{width: '100%'}} />
-          <p><strong>Company:</strong><br />{user.company || 'N/A'}</p>
-          <p><strong>Location:</strong><br />{user.location || 'N/A'}</p>
+          <p><strong>Company</strong><br />{user.company || 'N/A'}</p>
+          <p><strong>Location</strong><br />{user.location || 'N/A'}</p>
           {
             user.website &&
             <p>
-              <strong>Website:</strong>
+              <strong>Website</strong>
               <br />
               {formatWebsiteLink(user.website)}
             </p>
           }
-          <p><strong>Email:</strong><br />{user.email}</p>
-          <p><strong>Joined:</strong><br />{formatDate(user.created_on)}</p>
+          <p><strong>Email</strong><br />{user.email}</p>
+          <p><strong>Joined</strong><br />{formatDate(user.created_on)}</p>
           <Divider style={{width: '100%'}} />
           {
             token &&
             <p>
-              <strong>API Token:</strong>
+              <strong>API Token</strong>
               <Tooltip title="Click to copy Token">
                 <IconButton style={{marginLeft: '10px'}} size="small" onClick={() => copyToClipboard(token, 'Token copied to clipboard!')}>
                   <CopyIcon fontSize="small" />

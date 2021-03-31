@@ -12,9 +12,13 @@ import {
   Help as HelpIcon,
   Search as SearchIcon,
 } from '@material-ui/icons'
-import { map, isEmpty, get, filter } from 'lodash';
-import { getCurrentUserCollections } from '../../common/utils';
+import { map, isEmpty, get, filter, cloneDeep } from 'lodash';
 import APIService from '../../services/APIService';
+import { getCurrentUserCollections, getCurrentUser } from '../../common/utils';
+import CommonFormDrawer from '../common/CommonFormDrawer';
+import CollectionForm from '../collections/CollectionForm';
+
+const NEW_COLLECTION = {id: '__new__', name: 'Create New Collection'}
 
 class AddToCollection extends React.Component {
   constructor(props) {
@@ -30,9 +34,12 @@ class AddToCollection extends React.Component {
       cascadeMappings: true,
       notAdded: [],
       added: [],
+      collectionForm: false,
     }
     this.anchorRef = React.createRef(null);
   }
+
+  toggleCollectionForm = () => this.setState({collectionForm: !this.state.collectionForm})
 
   componentDidUpdate(prevProps, prevState) {
     if(this.state.open && !prevState.open && isEmpty(this.state.collections))
@@ -40,10 +47,13 @@ class AddToCollection extends React.Component {
   }
 
   fetchCollections() {
-    getCurrentUserCollections(collections => this.setState({
-      collections: [...this.state.collections, ...collections],
-      allCollections: [...this.state.collections, ...collections],
-    }))
+    getCurrentUserCollections(collections => {
+      this.setState({
+        collections: [...this.state.collections, ...collections],
+        allCollections: [...this.state.collections, ...collections],
+        isLoading: false,
+      })}
+    )
   }
 
   handleClose = event => {
@@ -59,7 +69,12 @@ class AddToCollection extends React.Component {
 
   onCheckboxChange = event => this.setState({cascadeMappings: event.target.checked})
 
-  handleMenuItemClick = (event, collection) => this.setState({selectedCollection: collection}, () => this.handleClose(event))
+  handleMenuItemClick = (event, collection) => {
+    if(get(collection, 'id') === '__new__')
+      this.toggleCollectionForm()
+    else
+      this.setState({selectedCollection: collection}, () => this.handleClose(event))
+  }
 
   handleAdd = () => {
     const { selectedCollection, cascadeMappings } = this.state
@@ -89,6 +104,11 @@ class AddToCollection extends React.Component {
     })
   }
 
+  afterNewCollectionAdd = newCollection => this.setState({
+    selectedCollection: newCollection,
+    allCollections: [...this.state.allCollections, newCollection]
+  })
+
   getFilteredCollections(value) {
     return filter(this.state.allCollections, collection => {
       const name = collection.short_code + '/' + collection.owner;
@@ -103,33 +123,59 @@ class AddToCollection extends React.Component {
                  this.state.allCollections
   })
 
+  getButton = () => {
+    const { iconButton, ...rest } = this.props;
+    if(iconButton)
+      return (
+        <Tooltip title='Add to Collection'>
+          <Button ref={this.anchorRef} onClick={this.toggleOpen} {...rest}>
+            <LoyaltyIcon fontSize='inherit' />
+          </Button>
+        </Tooltip>
+      )
+    return (
+      <Button ref={this.anchorRef} onClick={this.toggleOpen} startIcon={<LoyaltyIcon />} endIcon={<ArrowDropDownIcon />} {...rest}>
+        Add to Collection
+      </Button>
+    )
+  }
+
   render() {
     const {
-      open, collections, selectedCollection, cascadeMappings, notAdded, added, isAdding
+      open, allCollections, collections, selectedCollection, cascadeMappings, notAdded, added, isAdding, isLoading, searchedValue, collectionForm
     } = this.state;
-    const { references, ...restProps } = this.props
+    const { references } = this.props
     const openDialog = Boolean(selectedCollection)
     const collectionName = openDialog ? `${selectedCollection.owner}/${selectedCollection.short_code}`: '';
     const unableToAdd = !isEmpty(notAdded)
+    const _collections = [...collections, cloneDeep(NEW_COLLECTION)]
+    const noOverallCollections = !isLoading && allCollections.length === 0;
+    const noSearchResults = !isLoading && searchedValue && collections.length === 0;
+    const button = this.getButton();
 
     return (
       <React.Fragment>
-        <span>
-          <Button ref={this.anchorRef} onClick={this.toggleOpen} startIcon={<LoyaltyIcon />} endIcon={<ArrowDropDownIcon />} {...restProps}>
-            Add to Collection
-          </Button>
-          <Popper open={open} anchorEl={this.anchorRef.current} transition disablePortal style={{zIndex: 1000}}>
-            {({ TransitionProps, placement }) => (
-              <Grow
-                {...TransitionProps}
-                style={{
-                  transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom',
-                  zIndex: '1000'
-                }}
-                >
-                <Paper>
-                  <ClickAwayListener onClickAway={this.handleClose}>
-                    <MenuList variant='menu' id="split-button-menu" style={{maxHeight: '300px', overflow: 'scroll'}}>
+        {button}
+        <Popper open={open} anchorEl={this.anchorRef.current} transition disablePortal style={{zIndex: 1000}}>
+          {({ TransitionProps, placement }) => (
+            <Grow
+              {...TransitionProps}
+              style={{
+                transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom',
+                zIndex: '1000'
+              }}
+              >
+              <Paper>
+                <ClickAwayListener onClickAway={this.handleClose}>
+                  {
+                    noOverallCollections ?
+                    <p style={{padding: '20px'}}>
+                      You do not have any collections.
+                      <a style={{cursor: 'pointer', marginLeft: '2px'}} onClick={this.toggleCollectionForm}>
+                        Create New Collection?
+                      </a>
+                    </p> :
+                    <MenuList variant='menu' id="split-button-menu" style={{maxHeight: '100%', overflow: 'scroll'}}>
                       <TextField
                         id='collection-search-input'
                         placeholder='Search Collection...'
@@ -147,7 +193,14 @@ class AddToCollection extends React.Component {
                         }}
                       />
                       {
-                        map(collections, (collection, index) => (
+                        noSearchResults ?
+                        <p style={{padding: '0 20px'}}>
+                          No Matches.
+                          <a style={{cursor: 'pointer', marginLeft: '2px'}} onClick={this.toggleCollectionForm}>
+                            Create New Collection?
+                          </a>
+                        </p> :
+                        map(_collections, (collection, index) => (
                           <MenuItem
                             id={collection.url}
                             key={index}
@@ -155,20 +208,26 @@ class AddToCollection extends React.Component {
                             style={{padding: '10px 15px'}}
                             >
                             <span className='flex-vertical-center'>
-                              <span>{collection.owner}</span>
-                              <span style={{margin: '0 2px'}}>/</span>
-                              <span><b>{collection.short_code}</b></span>
+                              {
+                                collection.owner ?
+                                <React.Fragment>
+                                  <span>{collection.owner}</span>
+                                  <span style={{margin: '0 2px'}}>/</span>
+                                  <span><b>{collection.short_code}</b></span>
+                                </React.Fragment> :
+                                <span><i>{collection.name}</i></span>
+                              }
                             </span>
                           </MenuItem>
                         ))
                       }
                     </MenuList>
-                  </ClickAwayListener>
-                </Paper>
-              </Grow>
-            )}
-          </Popper>
-        </span>
+                  }
+                </ClickAwayListener>
+              </Paper>
+            </Grow>
+          )}
+        </Popper>
         <Dialog open={openDialog} onClose={this.handleDialogClose}>
           <DialogTitle>
             {`Add To Collection: ${collectionName}`}
@@ -236,6 +295,20 @@ class AddToCollection extends React.Component {
             }
           </DialogActions>
         </Dialog>
+        <CommonFormDrawer
+          isOpen={collectionForm}
+          onClose={this.toggleCollectionForm}
+          formComponent={
+            <CollectionForm
+              newCollectionProps={{
+                name: (searchedValue || '').trim()
+              }}
+                                 onCancel={this.toggleCollectionForm}
+                                 parentURL={get(getCurrentUser(), 'url')}
+                                 onSuccess={this.afterNewCollectionAdd}
+            />
+          }
+        />
       </React.Fragment>
     )
   }
