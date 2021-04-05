@@ -21,7 +21,7 @@ export const ALL_COLUMNS = {
     {id: 'owner', label: 'Owner', value: 'owner', sortOn: 'owner', renderer: concept => <OwnerChip ownerType={concept.owner_type} owner={concept.owner} />, essential: false},
     {id: 'parent', label: 'Source', value: 'source', sortOn: 'source', essential: false},
     {id: 'id', label: 'ID', value: 'id', sortOn: 'id', className: 'small'},
-    {id: 'name', label: 'Name', value: 'display_name', sortOn: 'name', renderer: concept => (concept.retired ? <span className='retired'>{concept.display_name}</span> : <span>{concept.display_name}</span>), className: 'medium', sortBy: 'asc'},
+    {id: 'name', label: 'Name', value: 'display_name', sortOn: 'name', renderer: concept => (<span className={concept.retired ? 'retired' : ''}>{concept.display_name}</span>), className: 'medium', sortBy: 'asc'},
     {id: 'class', label: 'Class', value: 'concept_class', sortOn: 'concept_class'},
     {id: 'datatype', label: 'Datatype', value: 'datatype', sortOn: 'datatype'},
     {id: 'updatedOn', label: 'UpdatedOn', value: 'version_created_on', formatter: formatDate, sortOn: 'last_update'},
@@ -93,7 +93,7 @@ export const ALL_COLUMNS = {
   CodeSystem: [
     {id: '_id', label: 'ID', value: 'resource.id', sortOn: '_id', sortBy: 'asc'},
     {id: 'url', label: 'Canonical URL', value: 'resource.url', sortable: false},
-    {id: 'name', label: 'Name', value: 'resource.name', sortOn: 'name', sortBy: 'asc'},
+    {id: 'name', label: 'Name', value: 'resource.name', renderer: codeSystem => <span className={codeSystem.resource.status}>{codeSystem.resource.name}</span>, sortOn: 'name', sortBy: 'asc'},
     {id: 'version', label: 'Latest Version', value: 'resource.version', sortOn: 'version', sortBy: 'asc'},
     {id: 'status', label: 'Status', value: 'resource.status', sortOn: 'status', sortBy: 'asc'},
     {id: 'content', label: 'Content', value: 'resource.content', sortOn: 'content', sortBy: 'asc'},
@@ -132,9 +132,12 @@ const CODE_SYSTEM_TAGS = [
     value: 'resource.count',
     label: 'Concepts',
     icon: <LocalOfferIcon fontSize='small' style={TAG_ICON_STYLES} />,
-    text: true
+    hrefAttr: item => `/fhir/CodeSystem/${item.resource.id}/`
   },
 ]
+
+export const CODE_SYSTEM_VERSION_TAGS = [...CODE_SYSTEM_TAGS]
+
 const SOURCE_TAG = {
   id: 'sources',
   value: 'public_sources',
