@@ -2,13 +2,26 @@
 Overhauled OCL Web Authoring Interface v2
 
 ### Run Dev
-1. docker-compose up -d
-2. Visit http://localhost:4000
+```bash
+docker-compose up -d
+```
+* Visit http://localhost:4000
 
 ### Run Production (do check CORS origin policy with API_URL)
-1. docker-compose -f docker-compose.yml up -d
-2. Visit http://localhost:4000
+```bash
+docker-compose -f docker-compose.yml up -d
+```
+* Visit http://localhost:4000
 
 
 ### Eslint
+```bash
 docker exec -it <container_name> bash -c "eslint src/ --ext=.js*"
+```
+
+### Create .env file
+
+```conf
+TAG=latest
+NODE_ENV=development
+```
