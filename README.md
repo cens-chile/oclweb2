@@ -24,4 +24,5 @@ docker exec -it <container_name> bash -c "eslint src/ --ext=.js*"
 ```conf
 TAG=latest
 NODE_ENV=development
+API_URL=http://ip-url:8000
 ```
