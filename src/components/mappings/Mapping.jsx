@@ -31,7 +31,7 @@ const Mapping = props => {
 
   return (
     <div className='col-sm-12' style={merge({paddingTop: '10px', paddingLeft: 0, paddingRight: 0}, get(props, 'style', {}))}>
-      <Link to={props.url} style={{display: 'inline-block'}} target="_blank">
+      <Link to={props.url} style={{display: 'inline-block'}}>
         <ResourceLabel
           owner={props.owner} parent={props.source} id={props.id} name={props.map_type}
           icon={<LinkIcon fontSize='small' style={{width: '10pt', color: DARKGRAY}}/>}
@@ -64,7 +64,7 @@ const Mapping = props => {
                 <React.Fragment key={attr}>
                   <span className='resource-attr'>{label}:</span>
                   <span className='resource-value' style={{marginRight: '0px'}}>
-                    {get(props, attr, 'None')}
+                    {get(props, attr, '')}
                   </span>
                   {i < customFields.length - 1 && <span style={{marginRight: '5px'}}>, </span>}
                 </React.Fragment>

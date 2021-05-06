@@ -89,6 +89,8 @@ class ConceptsComparison extends React.Component {
         owner: {...cloneDeep(this.attributeState), type: 'textFormatted', position: 4},
         names: {...cloneDeep(this.attributeState), collapsed: true, type: 'list', position: 5},
         descriptions: {...cloneDeep(this.attributeState), collapsed: true, type: 'list', position: 6},
+        parent_concept_urls: {...cloneDeep(this.attributeState), collapsed: true, type: 'list', position: 14},
+        child_concept_urls: {...cloneDeep(this.attributeState), collapsed: true, type: 'list', position: 15},
         mappings: {...cloneDeep(this.attributeState), collapsed: true, type: 'list', position: 7},
         extras: {...cloneDeep(this.attributeState), collapsed: true, type: 'list', position: 8},
         retired: {...cloneDeep(this.attributeState), type: 'bool', position: 9},
@@ -224,7 +226,7 @@ class ConceptsComparison extends React.Component {
         <div style={{margin: '5px 0px'}}>
           <span>
             <span className='gray-italics'>Source:</span>
-            <Link to={toParentURI(concept.url)} target="_blank">
+            <Link to={toParentURI(concept.url)}>
               <span>{concept.source}</span>
             </Link>
           </span>
@@ -292,6 +294,8 @@ class ConceptsComparison extends React.Component {
       return getMappingLabel(val, formatted)
     if(includes(['extras'], attr))
       return this.getExtraAttributeLabel(val)
+    if(includes(['parent_concept_urls', 'child_concept_urls'], attr))
+      return val
   }
 
   getExtraAttributeLabel(val) {
@@ -389,7 +393,7 @@ class ConceptsComparison extends React.Component {
           {this.getHeaderSubAttributes(concept)}
         </div>
         <div style={{fontSize: '18px'}}>
-          <Link to={concept.url} target="_blank">{concept.display_name}</Link>
+          <Link to={concept.url}>{concept.display_name}</Link>
         </div>
       </TableCell>
     )

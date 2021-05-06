@@ -42,7 +42,10 @@ const HIDDEN_ATTRIBUTES = {
   identifier: 'json',
   contact: 'json',
   jurisdiction: 'json',
+  meta: 'json',
   immutable: 'boolean',
+  locked_date: 'date',
+  experimental: 'boolean'
 }
 const CollectionHomeHeader = ({
   collection, isVersionedObject, versionedObjectURL, currentURL
@@ -164,9 +167,9 @@ const CollectionHomeHeader = ({
                 object={collection}
                 urlAttrs={['canonical_url']}
                 textAttrs={['publisher', 'purpose', 'copyright', 'preferred_source', 'custom_resources_linked_source']}
-                dateAttrs={['revision_date']}
+                dateAttrs={['revision_date', 'locked_date']}
                 jsonAttrs={['identifier', 'contact', 'jurisdiction']}
-                booleanAttrs={['immutable']}
+                booleanAttrs={['immutable', 'experimental']}
               />
             </div> :
             <React.Fragment>

@@ -5,10 +5,10 @@ import ConceptContainerVersionList from '../common/ConceptContainerVersionList';
 import About from '../common/About';
 import ConceptTable from './ConceptTable';
 
-const CodeSystemHomeTabs = props => {
+const ContainerHomeTabs = props => {
   const {
     tab, source, versions, location, versionedObjectURL, aboutTab, selectedConfig, onTabChange,
-    isOCLDefaultConfigSelected, codes,
+    isOCLDefaultConfigSelected, codes, hapi, onPageChange, isLoadingCodes
   } = props;
   const tabConfigs = aboutTab ? selectedConfig.config.tabs : reject(selectedConfig.config.tabs, {type: 'about'});
   const selectedTabConfig = tabConfigs[tab];
@@ -55,13 +55,14 @@ const CodeSystemHomeTabs = props => {
           selectedTabConfig.type === 'versions' &&
           <ConceptContainerVersionList versions={versions} resource='source' canEdit={false} fhir />
         }
+
         {
           selectedTabConfig.type === 'codes' &&
-          <ConceptTable concepts={codes} />
+          <ConceptTable concepts={codes} hapi={hapi} onPageChange={onPageChange} isLoading={isLoadingCodes} />
         }
       </div>
     </div>
   );
 }
 
-export default CodeSystemHomeTabs;
+export default ContainerHomeTabs;

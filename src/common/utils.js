@@ -4,15 +4,18 @@ import alertifyjs from 'alertifyjs';
 import moment from 'moment';
 import {
   filter, difference, compact, find, reject, intersectionBy, size, keys, omitBy, isEmpty,
-  get, includes, map, isArray, values, pick, sortBy, zipObject, orderBy, isObject, merge
+  get, includes, map, isArray, values, pick, sortBy, zipObject, orderBy, isObject, merge,
+  uniqBy
 } from 'lodash';
 import { DATE_FORMAT, DATETIME_FORMAT } from './constants';
 import APIService from '../services/APIService';
 import { SERVER_CONFIGS } from './serverConfigs';
 
+export const currentPath = () => window.location.hash.split('?')[0];
+
 export const isAtGlobalSearch = () => window.location.hash.includes('#/search') || isAtRoot();
 
-export const isAtRoot = () => window.location.hash === '#/';
+export const isAtRoot = () => currentPath() === '#/';
 
 export const formatDate = date => moment(date).format(DATE_FORMAT);
 
@@ -25,12 +28,12 @@ export const formatWebsiteLink = (value, style) => {
       href = 'https://' + href;
 
     return (
-        <a
-      target='_blank'
-      rel="noopener noreferrer"
-      href={href}
-      className="ellipsis-text"
-      style={merge({maxWidth: '100px'}, (style || {}))}>
+      <a
+        target='_blank'
+        rel="noopener noreferrer"
+        href={href}
+        className="ellipsis-text"
+        style={merge({maxWidth: '100px'}, (style || {}))}>
         {value.trim()}
       </a>
     );
@@ -38,36 +41,36 @@ export const formatWebsiteLink = (value, style) => {
   return '';
 }
 
-export const getIndirectMappings = (mappings, concept) => filter(mappings, {to_concept_code: concept});
+export const getIndirectMappings = (mappings, concept_url) => filter(mappings, {to_concept_url: concept_url});
 
-export const getDirectMappings = (mappings, concept) => filter(mappings, {from_concept_code: concept});
+export const getDirectMappings = (mappings, concept_url) => filter(mappings, {from_concept_url: concept_url});
 
-export const getDirectExternalMappings = (mappings, concept) => filter(mappings, mapping => Boolean(mapping.from_concept_code === concept && mapping.external_id));
+export const getDirectExternalMappings = (mappings, concept_url) => filter(mappings, mapping => Boolean(mapping.from_concept_url === concept_url && mapping.external_id));
 
-export const getLinkedQuestions = (mappings, concept) => filter(mappings, {to_concept_code: concept, map_type: 'Q-AND-A'});
+export const getLinkedQuestions = (mappings, concept_url) => filter(mappings, {to_concept_url: concept_url, map_type: 'Q-AND-A'});
 
-export const getLinkedAnswers = (mappings, concept) => filter(mappings, {from_concept_code: concept, map_type: 'Q-AND-A'});
+export const getLinkedAnswers = (mappings, concept_url) => filter(mappings, {from_concept_url: concept_url, map_type: 'Q-AND-A'});
 
-export const getSetParents = (mappings, concept) => filter(mappings, {to_concept_code: concept, map_type: 'CONCEPT-SET'});
+export const getSetParents = (mappings, concept_url) => filter(mappings, {to_concept_url: concept_url, map_type: 'CONCEPT-SET'});
 
-export const getSetMembers = (mappings, concept) => filter(mappings, {from_concept_code: concept, map_type: 'CONCEPT-SET'});
+export const getSetMembers = (mappings, concept_url) => filter(mappings, {from_concept_url: concept_url, map_type: 'CONCEPT-SET'});
 
-export const getMappingsDistributionByMapType = (mappings, concept) => {
-  const linkedQuestions = getLinkedQuestions(mappings, concept);
-  const linkedAnswers = getLinkedAnswers(mappings, concept);
-  const setParents = getSetParents(mappings, concept);
-  const setMembers = getSetMembers(mappings, concept);
+export const getMappingsDistributionByMapType = (mappings, concept_url) => {
+  const linkedQuestions = getLinkedQuestions(mappings, concept_url);
+  const linkedAnswers = getLinkedAnswers(mappings, concept_url);
+  const setParents = getSetParents(mappings, concept_url);
+  const setMembers = getSetMembers(mappings, concept_url);
   const directExternalMappings = getDirectExternalMappings(
     difference(mappings, [...linkedAnswers, ...linkedQuestions, ...setParents, ...setMembers]),
-    concept
+    concept_url
   );
   const directInternalMappings = getDirectMappings(
     difference(mappings, [...linkedAnswers, ...linkedQuestions, ...setParents, ...setMembers, ...directExternalMappings]),
-    concept
+    concept_url
   );
   const indirectMappings = getIndirectMappings(
     difference(mappings, [...linkedAnswers, ...linkedQuestions, ...setParents, ...setMembers, ...directExternalMappings, ...directInternalMappings]),
-    concept
+    concept_url
   );
 
   return {
@@ -207,7 +210,7 @@ export const getCurrentURL = () => window.location.href.replace(new RegExp('/$')
 
 const handleLookupValuesResponse = (data, callback, attr) => {
   const _attr = attr || 'id';
-  callback(orderBy(map(data, cc => ({id: get(cc, _attr), name: get(cc, _attr)})), 'name'));
+  callback(orderBy(uniqBy(map(data, cc => ({id: get(cc, _attr), name: get(cc, _attr)})), 'name')), 'name');
 }
 
 export const fetchLocales = callback => {
@@ -217,32 +220,32 @@ export const fetchLocales = callback => {
 
 export const fetchConceptClasses = callback => {
   APIService.sources('Classes').concepts()
-    .get(null, null, {limit: 1000, is_latest: true})
-    .then(response => handleLookupValuesResponse(response.data, callback));
+            .get(null, null, {limit: 1000, is_latest: true})
+            .then(response => handleLookupValuesResponse(response.data, callback));
 }
 
 export const fetchMapTypes = callback => {
   APIService.sources('MapTypes').concepts()
-    .get(null, null, {limit: 1000, is_latest: true})
-    .then(response => handleLookupValuesResponse(response.data, callback));
+            .get(null, null, {limit: 1000, is_latest: true})
+            .then(response => handleLookupValuesResponse(response.data, callback));
 }
 
 export const fetchDatatypes = callback => {
   APIService.sources('Datatypes').concepts()
-    .get(null, null, {limit: 1000, is_latest: true})
-    .then(response => handleLookupValuesResponse(response.data, callback));
+            .get(null, null, {limit: 1000, is_latest: true})
+            .then(response => handleLookupValuesResponse(response.data, callback));
 }
 
 export const fetchNameTypes = callback => {
   APIService.sources('NameTypes').concepts()
-    .get(null, null, {limit: 1000, is_latest: true})
-    .then(response => handleLookupValuesResponse(response.data, callback, 'display_name'));
+            .get(null, null, {limit: 1000, is_latest: true})
+            .then(response => handleLookupValuesResponse(response.data, callback, 'display_name'));
 }
 
 export const fetchDescriptionTypes = callback => {
   APIService.sources('DescriptionTypes').concepts()
-    .get(null, null, {limit: 1000, is_latest: true})
-    .then(response => handleLookupValuesResponse(response.data, callback, 'display_name'));
+            .get(null, null, {limit: 1000, is_latest: true})
+            .then(response => handleLookupValuesResponse(response.data, callback, 'display_name'));
 }
 
 export const downloadObject = (obj, format, filename) => {
@@ -290,24 +293,24 @@ export const memorySizeOf = (obj, format=true) => {
   const sizeOf = obj => {
     if(obj !== null && obj !== undefined) {
       switch(typeof obj) {
-      case 'number':
-        bytes += 8;
-        break;
-      case 'string':
-        bytes += obj.length * 2;
-        break;
-      case 'boolean':
-        bytes += 4;
-        break;
-      case 'object':
-        var objClass = Object.prototype.toString.call(obj).slice(8, -1);
-        if(objClass === 'Object' || objClass === 'Array') {
-          for(var key in obj) {
-            if(!obj.hasOwnProperty(key)) continue;
-            sizeOf(obj[key]);
-          }
-        } else bytes += obj.toString().length * 2;
-        break;
+        case 'number':
+          bytes += 8;
+          break;
+        case 'string':
+          bytes += obj.length * 2;
+          break;
+        case 'boolean':
+          bytes += 4;
+          break;
+        case 'object':
+          var objClass = Object.prototype.toString.call(obj).slice(8, -1);
+          if(objClass === 'Object' || objClass === 'Array') {
+            for(var key in obj) {
+              if(!obj.hasOwnProperty(key)) continue;
+              sizeOf(obj[key]);
+            }
+          } else bytes += obj.toString().length * 2;
+          break;
       }
     }
     return bytes;
@@ -326,23 +329,23 @@ export const getCurrentUserCollections = callback => {
   const username = getCurrentUserUsername();
   if(username) {
     APIService.users(username)
-      .collections()
-      .get(null, null, {limit: 1000})
-      .then(response => isArray(response.data) ? callback(response.data) : false);
+              .collections()
+              .get(null, null, {limit: 1000})
+              .then(response => isArray(response.data) ? callback(response.data) : false);
     APIService.users(username)
-      .orgs()
-      .appendToUrl('collections/')
-      .get(null, null, {limit: 1000})
-      .then(response => isArray(response.data) ? callback(response.data) : false);
+              .orgs()
+              .appendToUrl('collections/')
+              .get(null, null, {limit: 1000})
+              .then(response => isArray(response.data) ? callback(response.data) : false);
   }
 }
 
 export const isValidPassword = (password, strength, minStrength = 3) => {
   return Boolean(
     password &&
-      strength >= minStrength &&
-      password.length >= 8 &&
-      password.match(new RegExp(/(?=.*[0-9])(?=.*[a-zA-Z])(?=\S+$)./g))
+    strength >= minStrength &&
+    password.length >= 8 &&
+    password.match(new RegExp(/(?=.*[0-9])(?=.*[a-zA-Z])(?=\S+$)./g))
   );
 }
 
@@ -409,3 +412,40 @@ export const getDefaultServerConfig = () => {
 export const canSwitchServer = () => Boolean(getSelectedServerConfig() || get(getCurrentUser(), 'is_staff'));
 
 export const isFHIRServer = () => get(getAppliedServerConfig(), 'type') === 'fhir';
+
+export const isConcept = uri => Boolean(uri.match('/concepts/'))
+export const isMapping = uri => Boolean(uri.match('/mappings/'))
+
+
+// https://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable-string
+/**
+ * Format bytes as human-readable text.
+ *
+ * @param bytes Number of bytes.
+ * @param si True to use metric (SI) units, aka powers of 1000. False to use
+ *           binary (IEC), aka powers of 1024.
+ * @param dp Number of decimal places to display.
+ *
+ * @return Formatted string.
+ */
+export const humanFileSize = (bytes, si=false, dp=1) => {
+  const thresh = si ? 1000 : 1024;
+
+  if (Math.abs(bytes) < thresh) {
+    return bytes + ' B';
+  }
+
+  const units = si
+              ? ['KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+              : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+  let u = -1;
+  const r = 10**dp;
+
+  do {
+    bytes /= thresh;
+    ++u;
+  } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
+
+
+  return bytes.toFixed(dp) + ' ' + units[u];
+}

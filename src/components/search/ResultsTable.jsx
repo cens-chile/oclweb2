@@ -12,18 +12,20 @@ import {
   ArrowForward as ForwardIcon,
   Public as PublicIcon,
   Lock as PrivateIcon,
+  Warning as WarningIcon,
+  PriorityHigh as PriorityIcon,
 } from '@material-ui/icons'
 import { Pagination } from '@material-ui/lab'
 import {
   map, startCase, get, without, uniq, includes, find, keys, values, isEmpty, filter, reject, has,
-  isFunction,
+  isFunction, compact
 } from 'lodash';
 import {
   BLUE, WHITE, DARKGRAY, COLOR_ROW_SELECTED, ORANGE, GREEN, EMPTY_VALUE
 } from '../../common/constants';
 import {
   formatDateTime, headFirst, isLoggedIn, defaultCreatePin, defaultDeletePin,
-  getCurrentUserUsername, isCurrentUserMemberOf, isAdminUser, currentUserHasAccess,
+  getCurrentUserUsername, isCurrentUserMemberOf, isAdminUser, currentUserHasAccess, getAppliedServerConfig,
 } from '../../common/utils';
 import ReleasedChip from '../common/ReleasedChip';
 import AllMappingsTables from '../mappings/AllMappingsTables';
@@ -34,7 +36,7 @@ import ConceptHome from '../concepts/ConceptHome';
 import MappingHome from '../mappings/MappingHome';
 import { ALL_COLUMNS, TAGS, CODE_SYSTEM_VERSION_TAGS } from './ResultConstants'
 import SelectedResourceControls from './SelectedResourceControls';
-import CodeSystem from '../fhir/CodeSystem';
+import FhirContainerResource from '../fhir/ContainerResource';
 
 const RESOURCE_DEFINITIONS = {
   references: {
@@ -94,12 +96,22 @@ const RESOURCE_DEFINITIONS = {
   CodeSystem: {
     headBgColor: GREEN,
     headTextColor: WHITE,
-    columns: ALL_COLUMNS.CodeSystem.slice(0, 8),
+    columns: ALL_COLUMNS.CodeSystem,
     tagWaitAttribute: 'resource',
     tags: TAGS.CodeSystem,
     expandible: true,
     tabs: ['Details', 'Versions', 'Copyright'],
-  }
+  },
+  ValueSet: {
+    headBgColor: GREEN,
+    headTextColor: WHITE,
+    columns: ALL_COLUMNS.ValueSet,
+    tagWaitAttribute: 'resource',
+    tags: TAGS.ValueSet,
+    getTags: hapi => hapi ? TAGS.ValueSet : null,
+    expandible: true,
+    tabs: ['Details', 'Versions', 'Copyright'],
+  },
 }
 
 const getValue = (item, column) => {
@@ -111,57 +123,105 @@ const getValue = (item, column) => {
   return value
 }
 
-const getTag = (tag, item) => {
-  return (
-    <Tooltip title={tag.label} key={tag.id}>
-      <div style={{fontSize: '14px', lineHeight: '0px', marginBottom: '2px'}}>
-        <div className='flex-vertical-center'>
-          <span>{tag.icon}</span>
-          <span style={{padding: '2px'}}>{`${get(item, tag.value, '0').toLocaleString()}`}</span>
-        </div>
+const getTag = (tag, item, hapi) => {
+  const value = isFunction(tag.getValue) ? tag.getValue(item, hapi) : get(item, tag.value, '0').toLocaleString();
+  const icon = isFunction(tag.getIcon) ? tag.getIcon(item) : tag.icon;
+  const getTagDom = () => (
+    <div style={{fontSize: '14px', lineHeight: '0px', marginBottom: '2px'}}>
+      <div className='flex-vertical-center'>
+        <span>{icon}</span>
+        {
+          !tag.noCount &&
+          <span style={{padding: '2px'}}>{value}</span>
+        }
       </div>
-    </Tooltip>
-  )
+    </div>
+  );
+
+  return (
+    <React.Fragment>
+      {
+        tag.noTooltip ?
+        getTagDom() :
+        <Tooltip title={tag.label} key={tag.id}>
+          {
+            getTagDom()
+          }
+        </Tooltip>
+      }
+    </React.Fragment>
+  );
 }
 
-const FHIRHistoryTable = ({ versions }) => (
-  <Table size="small" aria-label="versions">
-    <TableHead>
-      <TableRow>
-        <TableCell align='center'>Version</TableCell>
-        <TableCell align='left'>Status</TableCell>
-        <TableCell align='left'>Content</TableCell>
-        <TableCell align='left'>Release Date</TableCell>
-        <TableCell />
-      </TableRow>
-    </TableHead>
-    <TableBody>
-      {
-        map(versions, version => (
-          <TableRow hover key={version.resource.version || version.resource.meta.versionId}>
-            <TableCell align='center'>
-              { version.resource.version || version.resource.meta.versionId }
-            </TableCell>
-            <TableCell align='left'>
-              { version.resource.status }
-            </TableCell>
-            <TableCell align='left'>
-              { version.resource.content }
-            </TableCell>
-            <TableCell align='left'>
-              { formatDateTime(version.resource.date) }
-            </TableCell>
-            <TableCell align='left'>
-              {
-                map(CODE_SYSTEM_VERSION_TAGS, tag => getTag(tag, version))
-              }
-            </TableCell>
-          </TableRow>
-        ))
-      }
-    </TableBody>
-  </Table>
-)
+const FHIRHistoryTable = ({ versions, isValueSet }) => {
+  const getVersionLabel = version => {
+    const versionName = version.resource.version
+    const changeId = get(version, 'resource.meta.versionId')
+
+    if(isValueSet && versionName !== changeId && versionName && changeId)
+      return `${versionName} (${changeId})`
+
+    return versionName || changeId
+  }
+
+  return (
+    <Table size="small" aria-label="versions">
+      <TableHead>
+        <TableRow>
+          { isValueSet && <TableCell /> }
+          <TableCell align='center'>Version</TableCell>
+          <TableCell align='left'>Status</TableCell>
+          <TableCell align='left'>Content</TableCell>
+          <TableCell align='left'>Release Date</TableCell>
+          <TableCell />
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {
+          map(versions, version => {
+            const versionLabel = getVersionLabel(version)
+            return (
+              <TableRow hover key={versionLabel}>
+                {
+                  isValueSet &&
+                  <TableCell align='center'>
+                    <span className='flex-vertical-center'>
+                      {
+                        get(version, 'resource.experimental') &&
+                        <Tooltip title='For testing purposes, not real usage'>
+                          <span className='flex-vertical-center'>
+                            <WarningIcon fontSize='small' style={{marginTop: '2px'}} />
+                          </span>
+                        </Tooltip>
+                      }
+                      {
+                        get(version, 'resource.immutable') &&
+                        <Tooltip title='Changes to the content logical definition may occur'>
+                          <span className='flex-vertical-center'>
+                            <PriorityIcon fontSize='small' style={{marginTop: '2px'}} />
+                          </span>
+                        </Tooltip>
+                      }
+                    </span>
+                  </TableCell>
+                }
+                <TableCell align='center'> { versionLabel } </TableCell>
+                <TableCell align='left'> { version.resource.status } </TableCell>
+                <TableCell align='left'> { version.resource.content } </TableCell>
+                <TableCell align='left'> { formatDateTime(version.resource.date) } </TableCell>
+                <TableCell align='left'>
+                  {
+                    map(CODE_SYSTEM_VERSION_TAGS, tag => getTag(tag, version))
+                  }
+                </TableCell>
+              </TableRow>
+            )
+          })
+        }
+      </TableBody>
+    </Table>
+  )
+}
 
 const HistoryTable = ({ versions }) => {
   return (
@@ -287,14 +347,16 @@ const ExpandibleRow = props => {
   const [selected, setSelected] = React.useState(isSelected);
   const isConceptContainer = includes(['sources', 'collections'], resource);
   const isCodeSystem = resource === 'CodeSystem';
+  const isValueSet = resource === 'ValueSet';
   const isPublic = includes(['view', 'edit'], get(item, 'public_access', '').toLowerCase()) && isConceptContainer;
   const pinId = get(find(pins, {resource_uri: item.url}), 'id');
+  const tags = resourceDefinition.getTags ? resourceDefinition.getTags(hapi) : resourceDefinition.tags;
 
   const columnsCount = get(columns, 'length', 1) +
-                               (isConceptContainer ? 1 : 0) + //public column
-                                  (isSelectable ? 1 : 0) + // select column
-                                   ((resourceDefinition.expandible || showPin) ? 1 : 0) + // expand icon column
-                                 (resourceDefinition.tags ? 1 : 0); //tags column
+                                       ((isConceptContainer || isValueSet) ? 1 : 0) + //public column
+                                          (isSelectable ? 1 : 0) + // select column
+                                           ((resourceDefinition.expandible || showPin) ? 1 : 0) + // expand icon column
+                                         (tags ? 1 : 0); //tags column
 
   React.useEffect(() => setPin(includes(map(pins, 'resource_uri'), item.url)), [pins]);
   React.useEffect(() => setSelected(isSelected), [isSelected]);
@@ -363,15 +425,17 @@ const ExpandibleRow = props => {
   }
 
   const onRowClick = event => {
-    if(includes(['references'], resource) || (fhir && !hapi))
+    if(includes(['references'], resource))
       return
     event.stopPropagation();
     event.preventDefault()
-
-    if(resource === 'CodeSystem')
-      window.location.hash = `/fhir/CodeSystem/${item.resource.id}`;
-    else
-      window.open('#' + item.url, '_blank')
+    if(fhir) {
+      if(hapi)
+        window.location.hash = `/fhir/${resource}/${item.resource.id}`;
+      else
+        window.location.hash = `/fhir${getOCLFHIRResourceURL(item)}`
+    } else
+      window.location.hash = item.url;
   }
 
   const onContextMenu = event => {
@@ -381,23 +445,24 @@ const ExpandibleRow = props => {
     }
   }
 
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-  };
+  const handleTabChange = (event, newValue) => setTab(newValue);
+
+  const getOCLFHIRResourceURL = item => '/' + compact(get(find(get(item, 'resource.identifier', []), ident => get(ident, 'system', '').match('fhir.')), 'value', '').split('/')).splice(0, 4).join('/');
 
   const fetchVersions = () => {
     if(fhir) {
       if(hapi) {
+        const baseURI = get(getAppliedServerConfig(), 'info.baseURI')
         const resourceType = get(item, 'resource.resourceType')
         const resourceId = get(item, 'resource.id')
         if(resourceType && resourceId)
-          APIService.new().overrideURL(`/baseR4/${resourceType}/${resourceId}/_history/?_total=accurate&_sort=-date`).get().then(response => {
+          APIService.new().overrideURL(`${baseURI}${resourceType}/${resourceId}/_history/?_total=accurate&_sort=-date`).get().then(response => {
             if(response.status === 200)
               setVersions(response.data.entry)
           })
 
       } else {
-        const uri = get(get(item, 'resource.identifier.0.value', '').split('/version/'), '0')
+        const uri = getOCLFHIRResourceURL(item);
         if(uri)
           APIService.new().overrideURL(uri).appendToUrl('/version/').get().then(response => {
             if(response.status === 200)
@@ -470,14 +535,14 @@ const ExpandibleRow = props => {
   }
 
   const navigateTo = (event, item, url) => {
-    let _url = isFunction(url) ? url(item) : url;
+    let _url = isFunction(url) ? url(item, hapi) : url;
 
     if(!isConceptContainer && !fhir)
       _url = url.replace('/versions', '/history')
 
     event.stopPropagation()
     event.preventDefault()
-    window.open('#' + _url, '_blank')
+    window.location.hash = _url
   }
 
   return (
@@ -506,6 +571,29 @@ const ExpandibleRow = props => {
           </TableCell>
         }
         {
+          isValueSet &&
+          <TableCell align='center'>
+            <span className='flex-vertical-center'>
+              {
+                get(item, 'resource.experimental') &&
+                <Tooltip title='For testing purposes, not real usage'>
+                  <span className='flex-vertical-center'>
+                    <WarningIcon fontSize='small' style={{marginTop: '2px'}} />
+                  </span>
+                </Tooltip>
+              }
+              {
+                get(item, 'resource.immutable') &&
+                <Tooltip title='Changes to the content logical definition may occur'>
+                  <span className='flex-vertical-center'>
+                    <PriorityIcon fontSize='small' style={{marginTop: '2px'}} />
+                  </span>
+                </Tooltip>
+              }
+            </span>
+          </TableCell>
+        }
+        {
           isSelectable &&
           <TableCell>
             <Checkbox checked={selected} onClick={onCheckboxClick} />
@@ -514,7 +602,7 @@ const ExpandibleRow = props => {
         {
           map(columns, column => (
             <TableCell key={column.id} align={column.align || 'left'} className={column.className}>
-              { getValue(item, column) || 'None' }
+              { getValue(item, column) }
             </TableCell>
           ))
         }
@@ -524,9 +612,9 @@ const ExpandibleRow = props => {
             {
               resourceDefinition.tagWaitAttribute && !has(item, resourceDefinition.tagWaitAttribute) ?
               <CircularProgress style={{width: '20px', height: '20px'}} /> :
-              map(resourceDefinition.tags, tag => (tag.text || (fhir && !hapi)) ? getTag(tag, item) : (
+              map(tags, tag => tag.text ? getTag(tag, item, hapi) : (
                 <Link key={tag.id} to='' onClick={event => navigateTo(event, item, isFunction(tag.hrefAttr) ? tag.hrefAttr : get(item, tag.hrefAttr))}>
-                  {getTag(tag, item)}
+                  {getTag(tag, item, hapi)}
                 </Link>
               ))
             }
@@ -570,7 +658,7 @@ const ExpandibleRow = props => {
                   {
                     tab === resourceDefinition.tabs.indexOf('Mappings') &&
                     <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
-                      <AllMappingsTables mappings={mappings} concept={item.id} isLoading={isFetchingMappings} />
+                      <AllMappingsTables mappings={mappings} concept_url={item.url} isLoading={isFetchingMappings} />
                     </div>
                   }
                   {
@@ -586,15 +674,15 @@ const ExpandibleRow = props => {
                     </div>
                   }
                   {
-                    isCodeSystem && tab === resourceDefinition.tabs.indexOf('Copyright') &&
+                    (isCodeSystem || isValueSet) && tab === resourceDefinition.tabs.indexOf('Copyright') &&
                     <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
                       <div className="col-md-12" style={{padding: '20px'}} dangerouslySetInnerHTML={{__html: item.resource.copyright}} />
                     </div>
                   }
                   {
-                    isCodeSystem && tab === resourceDefinition.tabs.indexOf('Details') &&
+                    (isCodeSystem || isValueSet) && tab === resourceDefinition.tabs.indexOf('Details') &&
                     <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
-                      <CodeSystem {...item} style={{padding: '20px'}} />
+                      <FhirContainerResource {...item} style={{padding: '20px'}} />
                     </div>
                   }
                   {
@@ -605,7 +693,7 @@ const ExpandibleRow = props => {
                     <div style={{borderTop: '1px solid lightgray', maxHeight: '175px', overflow: 'auto'}}>
                       {
                         fhir ?
-                        <FHIRHistoryTable versions={versions} /> :
+                        <FHIRHistoryTable versions={versions} isValueSet={isValueSet} /> :
                         <HistoryTable versions={versions} />
                       }
                     </div>
@@ -652,6 +740,7 @@ const ResultsTable = (
     border: `1px solid ${theadBgColor}`,
   }
   const isConceptContainer = includes(['sources', 'collections'], resource);
+  const isValueSet = includes(['ValueSet'], resource);
   const shouldShowPin = showPin && resourceDefinition.pinnable;
   const canRender = results.total && resourceDefinition;
   const defaultOrderBy = get(find(resourceDefinition.columns, {sortOn: get(values(sortParams), '0', 'last_update')}), 'id', 'UpdateOn');
@@ -704,7 +793,7 @@ const ResultsTable = (
                 resourceDefinition.columns;
 
   columns = isEmpty(viewFields) ? columns : filterColumnsFromViewFields()
-  const columnsCount = get(columns, 'length', 1) + ((resourceDefinition.expandible || shouldShowPin) ? 2 : 1) + (isConceptContainer ? 1 : 0);
+  const columnsCount = get(columns, 'length', 1) + ((resourceDefinition.expandible || shouldShowPin) ? 2 : 1) + ((isConceptContainer || isValueSet) ? 1 : 0);
   const selectionRowColumnsCount = selectedList.length > 0 ? columnsCount - 2 : columnsCount;
 
   return (
@@ -732,7 +821,7 @@ const ResultsTable = (
                 }
                 <TableRow>
                   {
-                    isConceptContainer &&
+                    (isConceptContainer || isValueSet) &&
                     <TableCell />
                   }
                   {

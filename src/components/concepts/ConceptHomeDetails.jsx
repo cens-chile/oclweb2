@@ -12,7 +12,7 @@ const ACCORDIAN_HEADING_STYLES = {
   fontWeight: 'bold',
 }
 const ACCORDIAN_DETAILS_STYLES = {
-  maxHeight: '300px', overflow: 'scroll', display: 'inline-block', width: '100%', padding: '0px'
+  maxHeight: '300px', overflow: 'auto', display: 'inline-block', width: '100%', padding: '0px'
 }
 
 const None = () => {
@@ -20,8 +20,8 @@ const None = () => {
 }
 
 const ConceptHomeDetails = ({ concept, currentURL, isLoadingMappings }) => {
-  const directMappings = getDirectMappings(concept.mappings, concept.id);
-  const indirectMappings = getIndirectMappings(concept.mappings, concept.id);
+  const directMappings = getDirectMappings(concept.mappings, concept.url);
+  const indirectMappings = getIndirectMappings(concept.mappings, concept.url);
   const names = get(concept, 'names', [])
   const descriptions = get(concept, 'descriptions', [])
   const directMappingsCountLabel = isLoadingMappings ? '' : `(${get(directMappings, 'length', 0)})`;

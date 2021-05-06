@@ -11,7 +11,7 @@ const ACCORDIAN_HEADING_STYLES = {
   fontWeight: 'bold',
 }
 const ACCORDIAN_DETAILS_STYLES = {
-  maxHeight: '400px', overflow: 'scroll', display: 'inline-block', width: '100%'
+  maxHeight: '400px', overflow: 'auto', display: 'inline-block', width: '100%'
 }
 
 const None = () => {
@@ -19,7 +19,7 @@ const None = () => {
 }
 
 const ConceptHomeMappings = ({ concept, isLoadingMappings }) => {
-  const mappingsDistribution = omitBy(getMappingsDistributionByMapType(concept.mappings, concept.id), isEmpty);
+  const mappingsDistribution = omitBy(getMappingsDistributionByMapType(concept.mappings, concept.url), isEmpty);
   const count = isLoadingMappings ? '' : `(${get(concept.mappings, 'length', 0)})`
   return (
     <div className='col-md-12'>

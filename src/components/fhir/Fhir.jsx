@@ -10,9 +10,8 @@ const DEFAULT_CONFIG = {
   is_default: false,
   config: {
     tabs: [
-      {
-        type: "CodeSystem", label: "Code Systems", "default": true, layout: 'table'
-      },
+      { type: "CodeSystem", label: "Code Systems", "default": true, layout: 'table' },
+      { type: "ValueSet", label: "Value Sets", layout: 'table' },
     ]
   }
 }
@@ -20,16 +19,17 @@ const DEFAULT_CONFIG = {
 class Fhir extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-      tab: 0,
-    }
     this.serverConfig = getAppliedServerConfig()
+    this.state = {
+      tab: window.location.hash.match('/ValueSet') ? 1 : 0,
+      config: DEFAULT_CONFIG
+    }
   }
 
   onTabChange = (event, value) => this.setState({tab: value})
 
   render() {
-    const { tab } = this.state;
+    const { tab, config } = this.state;
     const { info, url, hapi } = this.serverConfig;
     const { org, pageSize } = info;
     return (
@@ -54,7 +54,7 @@ class Fhir extends React.Component {
             location={this.props.location}
             match={this.props.match}
             url={info.baseURI}
-            selectedConfig={DEFAULT_CONFIG}
+            selectedConfig={config}
             limit={pageSize}
             hapi={hapi}
           />

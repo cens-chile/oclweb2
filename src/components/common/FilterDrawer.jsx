@@ -31,10 +31,13 @@ const FilterDrawer = props => {
 
   let uiFilters = omit(omitBy(filters, isEmpty), blacklisted)
 
-  if(isObject(kwargs) && !kwargs.collection && isSourceChild && !isEmpty(uiFilters)){
+  if(isObject(kwargs) && !kwargs.collection && isSourceChild && !isEmpty(uiFilters) && !isEmpty(uiFilters.collection)){
     uiFilters['collection_membership'] = uiFilters.collection
     delete uiFilters.collection
   }
+
+  if(has(uiFilters, 'experimental'))
+    uiFilters.experimental = [[(uiFilters.experimental[0][0] === 1).toString(), uiFilters.experimental[0][1], uiFilters.experimental[0][2]]]
 
   if(!isEmpty(facetOrder) && !isEmpty(uiFilters)) {
     const orderedUIFilters = {}
@@ -82,23 +85,16 @@ const FilterDrawer = props => {
     }
   }
 
-  const handleInputChange = event => {
-    setInput(event.target.value || '')
-  }
+  const handleInputChange = event => setInput(event.target.value || '')
 
   const onSearch = event => {
     event.preventDefault()
     event.stopPropagation()
 
-    setSearchStr(() => {return input || null;})
+    setSearchStr(() => (input || null))
   }
 
-  React.useEffect(() => {
-    if(!searchStr)
-      setSearchedFilters({})
-    else
-      setSearchedFilters(getSearchedFilters())
-  }, [searchStr]);
+  React.useEffect(() => setSearchedFilters(searchStr ? getSearchedFilters() : {}), [searchStr]);
 
   const getSearchedFilters = () => {
     let val = searchStr
@@ -120,9 +116,7 @@ const FilterDrawer = props => {
     return result
   }
 
-  const getFilters = () => {
-    return (isEmpty(searchedFilters) && isEmpty(searchStr)) ? uiFilters : searchedFilters;
-  }
+  const getFilters = () => (isEmpty(searchedFilters) && isEmpty(searchStr)) ? uiFilters : searchedFilters;
 
   const onSearchClear = () => {
     setInput('')
@@ -146,7 +140,7 @@ const FilterDrawer = props => {
 
   return (
     <Drawer anchor='left' open={open} onClose={onClose}>
-      <div className='col-md-12 no-side-padding' style={{width: '350px', height: 'calc(100% - 60px)', overflow: 'scroll'}}>
+      <div className='col-md-12 no-side-padding' style={{width: '350px', height: 'calc(100% - 60px)', overflow: 'auto'}}>
         <div className="col-md-12" style={{padding: '0 5px', margin: '5px 0', marginBottom: '0px'}}>
           <div className='col-sm-12 no-side-padding' style={{padding: '5px', display: 'flex', alignItems: 'center', border: '1px solid darkgray', borderRadius: '4px', height: '40px'}}>
             <InputBase
@@ -204,7 +198,7 @@ const FilterDrawer = props => {
                             <span className='col-md-12 no-side-padding flex-vertical-center'>
                               <span
               onClick={() => onCheckboxChange({target: {checked: !isChecked}}, field, facet)} className='col-md-9 no-left-padding' style={{textAlign: 'left', cursor: 'pointer', fontSize: '14px'}}>
-                                {formattedName(facet[0])}
+                                {includes(['locale', 'version'], field) ? facet[0] : formattedName(facet[0])}
                               </span>
                               <span className='col-md-3 no-right-padding' style={{textAlign: 'right', fontSize: '14px', color: 'rgb(0, 0, 0, 0.8)', fontWeight: '100'}}>
                                 {facet[1].toLocaleString()}

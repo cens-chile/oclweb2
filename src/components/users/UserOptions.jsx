@@ -5,13 +5,12 @@ import {
   List, ListItem, ListItemIcon, ListItemText, Chip, Divider, Button, Collapse
 } from '@material-ui/core';
 import {
-  ExitToApp as LogoutIcon, Edit as EditIcon, AccountCircle as AccountIcon,
+  ExitToApp as LogoutIcon, AccountCircle as AccountIcon,
   Storage as ServerIcon, ExpandLess as LessIcon, ExpandMore as MoreIcon,
+  Publish as ImportsIcon,
 } from '@material-ui/icons';
 import { get } from 'lodash';
 import { getCurrentUser, getUserInitials, getAppliedServerConfig, canSwitchServer } from '../../common/utils';
-import CommonFormDrawer from '../common/CommonFormDrawer';
-import UserForm from './UserForm';
 import ServerConfigList from '../common/ServerConfigList';
 
 const onLogoutClick = msg => {
@@ -26,7 +25,6 @@ const UserOptions = () => {
   const initials = getUserInitials()
   const user = getCurrentUser() || {}
   const [open, setOpen] = React.useState(false);
-  const [form, setForm] = React.useState(false);
   const [serverOpen, setServerOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
   const handleToggle = () => setOpen((prevOpen) => !prevOpen);
@@ -41,11 +39,11 @@ const UserOptions = () => {
     handleClose(event);
     window.location.hash = user.url
   };
-  const onEditClick = event => {
+  const onImportsClick = event => {
     event.persist();
     handleClose(event);
-    setForm(true);
-  }
+    window.location.hash = '/imports'
+  };
   const username = get(user, 'username');
   const displayName = get(user, 'name') || username;
   const serverConfig = getAppliedServerConfig();
@@ -93,16 +91,16 @@ const UserOptions = () => {
                         }
                       </div>
                       <ListItemText className='list-item-text-bold-primary' primary={displayName} secondary={user.email} />
-                      <Chip className='manage-account-chip' label={<span style={{fontWeight: 'bold'}}>Manage your OCL Account</span>} onClick={onHomeClick} />
+                      <Chip className='manage-account-chip' label={<span style={{fontWeight: 'bold'}}>My Profile</span>} onClick={onHomeClick} />
                     </ListItemText>
                   </ListItem>
                   <Divider />
-                  <Tooltip placement='left' title='Edit Profile'>
-                    <ListItem className='user-option-list-item' onClick={onEditClick}>
+                  <Tooltip placement='left' title='Bulk Imports'>
+                    <ListItem className='user-option-list-item' onClick={onImportsClick}>
                       <ListItemIcon style={{minWidth: 'auto', marginRight: '15px'}}>
-                        <EditIcon fontSize='small' />
+                        <ImportsIcon fontSize='small' />
                       </ListItemIcon>
-                      <ListItemText className='list-item-text' primary={displayName} secondary={user.email} />
+                      <ListItemText className='list-item-text' primary='Bulk Imports' secondary='View existing bulk-imports or queue a new one.' />
                     </ListItem>
                   </Tooltip>
                   <Divider />
@@ -118,7 +116,7 @@ const UserOptions = () => {
                       </ListItem>
                     </Tooltip>
                   }
-                  <Collapse in={serverOpen} style={{maxHeight: '250px', overflow: 'scroll'}}>
+                  <Collapse in={serverOpen} style={{maxHeight: '250px', overflow: 'auto'}}>
                     <ServerConfigList onClose={() => setOpen(false)}/>
                   </Collapse>
                   <Divider />
@@ -133,18 +131,6 @@ const UserOptions = () => {
           </Grow>
         )}
       </Popper>
-      <CommonFormDrawer
-        isOpen={form}
-        onClose={() => setForm(false)}
-        formComponent={
-          <UserForm
-            loggedIn
-            edit
-            reloadOnSuccess
-            onCancel={() => setForm(false)} user={user}
-          />
-        }
-      />
     </React.Fragment>
   )
 }

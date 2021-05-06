@@ -1,8 +1,9 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import alertifyjs from 'alertifyjs';
 import {
   Accordion, AccordionSummary, AccordionDetails, Typography, Divider, Tooltip,
-  IconButton,
+  IconButton, CircularProgress
 } from '@material-ui/core';
 import { map, isEmpty, startCase, get, includes, merge } from 'lodash';
 import {
@@ -18,12 +19,27 @@ import ConceptContainerTip from './ConceptContainerTip';
 import ConceptContainerVersionForm from './ConceptContainerVersionForm';
 import CommonFormDrawer from './CommonFormDrawer';
 import ConceptContainerExport from './ConceptContainerExport';
+import { CONCEPT_CONTAINER_RESOURCE_CHILDREN_TAGS } from '../search/ResultConstants';
 
 const ACCORDIAN_HEADING_STYLES = {
   fontWeight: 'bold',
 }
 const ACCORDIAN_DETAILS_STYLES = {
-  maxHeight: '300px', overflow: 'scroll', display: 'inline-block', width: '100%'
+  maxHeight: '300px', overflow: 'auto', display: 'inline-block', width: '100%'
+}
+
+const getTag = (tag, item) => {
+  const value = get(item, tag.value, '0').toLocaleString();
+  return (
+    <Tooltip title={tag.label} key={tag.id}>
+      <div style={{fontSize: '14px', lineHeight: '0px', marginBottom: '2px'}}>
+        <div className='flex-vertical-center'>
+          <span>{tag.icon}</span>
+          <span style={{padding: '2px'}}>{value}</span>
+        </div>
+      </div>
+    </Tooltip>
+  )
 }
 
 const None = () => {
@@ -46,7 +62,7 @@ const getService = version => APIService.new().overrideURL(version.version_url)
 const deleteVersion = version => getService(version).delete().then(response => handleResponse(response, version.type, 'Deleted'))
 const updateVersion = (version, data, verb, successCallback) => getService(version).put(data).then(response => handleResponse(response, version.type, verb, updatedVersion => successCallback(merge(version, updatedVersion))))
 
-const ConceptContainerVersionList = ({ versions, resource, canEdit, onUpdate, fhir }) => {
+const ConceptContainerVersionList = ({ versions, resource, canEdit, onUpdate, fhir, isLoading }) => {
   const sortedVersions = headFirst(versions);
   const [versionForm, setVersionForm] = React.useState(false);
   const [selectedVersion, setSelectedVersion] = React.useState();
@@ -93,89 +109,109 @@ const ConceptContainerVersionList = ({ versions, resource, canEdit, onUpdate, fh
           </AccordionSummary>
           <AccordionDetails style={ACCORDIAN_DETAILS_STYLES}>
             {
-              isEmpty(sortedVersions) ?
-              None() :
-              map(sortedVersions, (version, index) => {
-                const isHEAD = version.id.toLowerCase() === 'head';
-                return (
-                  <div className='col-md-12 no-side-padding' key={index}>
-                    <div className='col-md-12 no-side-padding flex-vertical-center' style={{margin: '10px 0'}}>
-                      <div className='col-md-9 no-side-padding'>
-                        <div className='col-md-12 no-side-padding' style={{marginBottom: '5px'}}>
+              isLoading ?
+              <div style={{width: '100%', textAlign: 'center'}}>
+                <CircularProgress color='primary' />
+              </div> :
+              (
+                isEmpty(sortedVersions) ?
+                None() :
+                map(sortedVersions, (version, index) => {
+                  const isHEAD = version.id.toLowerCase() === 'head';
+                  return (
+                    <div className='col-md-12 no-side-padding' key={index}>
+                      <div className='col-md-12 no-side-padding flex-vertical-center' style={{margin: '10px 0'}}>
+                        <div className='col-md-9 no-side-padding'>
+                          <div className='col-md-12 no-side-padding' style={{marginBottom: '5px'}}>
+                            {
+                              fhir ?
+                              <ResourceVersionLabel {...version} short_code={version.id} /> :
+                              <ResourceVersionLabel {...version} />
+                            }
+                          </div>
+                          <div className='col-md-12'>
+                            <span>{version.description}</span>
+                          </div>
+                          <div className='col-md-12'>
+                            <LastUpdatedOnLabel
+                              by={version.created_by}
+                              date={fhir ? version.date : version.created_on}
+                              label={fhir ? 'Released' : 'Created'}
+                            />
+                          </div>
+                        </div>
+                        <div className='col-md-3 no-right-padding version-button-controls-container'>
                           {
-                            fhir ?
-                            <ResourceVersionLabel {...version} short_code={version.id} /> :
-                            <ResourceVersionLabel {...version} />
+                            !fhir &&
+                            <div className='col-md-12 no-side-padding' style={{display: 'flex', justifyContent: 'flex-end', marginBottom: '5px'}}>
+                              {
+                                map(CONCEPT_CONTAINER_RESOURCE_CHILDREN_TAGS, (tag, i) => (
+                                  <Link to={version[tag.hrefAttr]} key={tag.id} style={i === 0 ? {marginRight: '10px'} : {}}>
+                                    {getTag(tag, version)}
+                                  </Link>
+                                ))
+                              }
+                            </div>
                           }
-                        </div>
-                        <div className='col-md-12'>
-                          <span>{version.description}</span>
-                        </div>
-                        <div className='col-md-12'>
-                          <LastUpdatedOnLabel
-                            by={version.created_by}
-                            date={fhir ? version.date : version.created_on}
-                            label={fhir ? 'Released on ' : 'Created on'}
-                          />
+                          <div className='col-md-12 no-side-padding'>
+                            {
+                              canEdit && !isHEAD &&
+                              <React.Fragment>
+                                <Tooltip title='Edit Version'>
+                                  <IconButton onClick={() => onEditClick(version)} size='small'>
+                                    <EditIcon fontSize='inherit' />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title={version.released ? 'UnRelease Version' : 'Release Version'}>
+                                  <IconButton color={version.released ? 'primary' : 'default' } onClick={() => onReleaseClick(version)} size='small'>
+                                    <ReleaseIcon fontSize='inherit' />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title={version.retired ? 'UnRetire Version' : 'Retire Version'}>
+                                  <IconButton className={version.retired && 'retired-red'} color={version.retired ? 'primary' : 'default' } onClick={() => onRetireClick(version)} size='small'>
+                                    <RetireIcon fontSize='inherit' />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title='Delete Version'>
+                                  <IconButton disabled={version.retired} onClick={() => onDeleteClick(version)} size='small'>
+                                    <DeleteIcon fontSize='inherit' />
+                                  </IconButton>
+                                </Tooltip>
+                              </React.Fragment>
+                            }
+                            {
+                              version && !fhir &&
+                              <ConceptContainerExport
+                                isHEAD={isHEAD}
+                                title={`Export Version ${version.id}`}
+                                version={version}
+                              />
+                            }
+                            {
+                              !fhir &&
+                              <React.Fragment>
+                                <Tooltip title='Explore Version'>
+                                  <IconButton href={`#${version.concepts_url}`} color='primary' size='small'>
+                                    <SearchIcon fontSize='inherit' />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title='Copy URL'>
+                                  <IconButton onClick={() => onCopyClick(version)} size='small'>
+                                    <CopyIcon fontSize='inherit' />
+                                  </IconButton>
+                                </Tooltip>
+                              </React.Fragment>
+                            }
+                          </div>
                         </div>
                       </div>
-                      <div className='col-md-3 no-right-padding version-button-controls-container'>
-                        {
-                          canEdit && !isHEAD &&
-                          <React.Fragment>
-                            <Tooltip title='Edit Version'>
-                              <IconButton onClick={() => onEditClick(version)} size='small'>
-                                <EditIcon fontSize='inherit' />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={version.released ? 'UnRelease Version' : 'Release Version'}>
-                              <IconButton color={version.released ? 'primary' : 'default' } onClick={() => onReleaseClick(version)} size='small'>
-                                <ReleaseIcon fontSize='inherit' />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={version.retired ? 'UnRetire Version' : 'Retire Version'}>
-                              <IconButton className={version.retired && 'retired-red'} color={version.retired ? 'primary' : 'default' } onClick={() => onRetireClick(version)} size='small'>
-                                <RetireIcon fontSize='inherit' />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title='Delete Version'>
-                              <IconButton disabled={version.retired} onClick={() => onDeleteClick(version)} size='small'>
-                                <DeleteIcon fontSize='inherit' />
-                              </IconButton>
-                            </Tooltip>
-                          </React.Fragment>
-                        }
-                        {
-                          version && !fhir &&
-                          <ConceptContainerExport
-                            isHEAD={isHEAD}
-                            title={`Export Version ${version.id}`}
-                            version={version}
-                          />
-                        }
-                        {
-                          !fhir &&
-                          <React.Fragment>
-                            <Tooltip title='Explore Version'>
-                              <IconButton href={`#${version.concepts_url}`} color='primary' size='small'>
-                                <SearchIcon fontSize='inherit' />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title='Copy URL'>
-                              <IconButton onClick={() => onCopyClick(version)} size='small'>
-                                <CopyIcon fontSize='inherit' />
-                              </IconButton>
-                            </Tooltip>
-                          </React.Fragment>
-                        }
-                      </div>
+                      {
+                        (index + 1) < versions.length && <Divider style={{width: '100%'}} />
+                      }
                     </div>
-                    {
-                      (index + 1) < versions.length && <Divider style={{width: '100%'}} />
-                    }
-                  </div>
-                )
-              })
+                  )
+                })
+              )
             }
           </AccordionDetails>
         </Accordion>

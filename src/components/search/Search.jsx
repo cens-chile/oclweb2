@@ -1,15 +1,11 @@
 import React from 'react';
-import moment from 'moment';
 import {
   get, set, cloneDeep, merge, forEach, includes, keys, pickBy, size, isEmpty, has, find, isEqual,
   map
 } from 'lodash';
-import { CircularProgress, ButtonGroup, Button, Chip } from '@material-ui/core';
-import {
-  NavigateBefore as NavigateBeforeIcon,
-  NavigateNext as NavigateNextIcon
-} from '@material-ui/icons';
+import { CircularProgress, Chip } from '@material-ui/core';
 import APIService from '../../services/APIService'
+import { formatDate } from '../../common/utils';
 import { BLUE, DEFAULT_LIMIT } from '../../common/constants';
 import ChipDatePicker from '../common/ChipDatePicker';
 import IncludeRetiredFilterChip from '../common/IncludeRetiredFilterChip';
@@ -28,6 +24,8 @@ import { fetchSearchResults, fetchCounts } from './utils';
 import LayoutToggle from '../common/LayoutToggle';
 import InfiniteScrollChip from '../common/InfiniteScrollChip';
 import { FACET_ORDER } from './ResultConstants';
+import BestMatchSort from './BestMatchSort';
+import NavigationButtonGroup from './NavigationButtonGroup';
 
 const resourceResultStruct = {
   isLoading: false,
@@ -54,7 +52,7 @@ class Search extends React.Component {
       exactMatch: 'off',
       resource: 'concepts',
       isLoading: false,
-      sortParams: {sortDesc: 'last_update'},
+      sortParams: {sortDesc: '_score'},
       limit: DEFAULT_LIMIT,
       openFacetsDrawer: false,
       appliedFacets: {},
@@ -230,7 +228,10 @@ class Search extends React.Component {
     this.fetchNewResults({searchStr: value, page: 1, exactMatch: exactMatch}, true, true)
   }
 
-  onFhirSearch = params => this.setState({fhirParams: params}, this.fetchNewResults)
+  onFhirSearch = params => this.setState(
+    {fhirParams: {...params, _sort: this.state.fhirParams._sort || '_id'}},
+    this.fetchNewResults
+  )
 
   getFacetQueryParam() {
     const { appliedFacets, viewFilters } = this.state;
@@ -286,7 +287,7 @@ class Search extends React.Component {
         if(hapi)
           params = {...params, ...fhirParams}
         else
-          params = {...params, page: page, _sort: fhirParams._sort}
+          params = {...params, page: page, ...fhirParams}
       }
       fetchSearchResults(
         _resource,
@@ -360,14 +361,9 @@ class Search extends React.Component {
 
   onResourceChange = resource => {
     const shouldGetCounts = !isEmpty(this.state.appliedFacets);
-    let sortParams = this.state.sortParams;
-    if(resource === 'users')
-      sortParams = {sortDesc: 'date_joined'}
-    else
-      sortParams = {sortDesc: 'last_update'}
 
     this.setState(
-      {resource: resource, appliedFacets: {}, sortParams: sortParams},
+      {resource: resource, appliedFacets: {}, sortParams: {sortDesc: '_score'}},
       () => this.fetchNewResults(null, shouldGetCounts, true)
     )
   }
@@ -379,7 +375,7 @@ class Search extends React.Component {
   getUpdatedSinceText() {
     const { updatedSince } = this.state;
     if(updatedSince)
-      return `Since: ${moment(updatedSince).format('MM/DD/YYYY')}`;
+      return `Since: ${formatDate(updatedSince)}`
     return 'All Time'
   }
 
@@ -425,9 +421,12 @@ class Search extends React.Component {
         {
           resource !== 'references' && !fhir &&
           <span>
-            <span style={{paddingRight: '4px'}}>
-              <IncludeRetiredFilterChip applied={includeRetired} onClick={this.onClickIncludeRetired} size={nested ? 'small' : 'medium'} />
-            </span>
+            {
+              includes(['concepts', 'mappings'], resource) &&
+              <span style={{paddingRight: '4px'}}>
+                <IncludeRetiredFilterChip applied={includeRetired} onClick={this.onClickIncludeRetired} size={nested ? 'small' : 'medium'} />
+              </span>
+            }
             <span style={{paddingRight: '4px'}}>
               <ChipDatePicker onChange={this.onDateChange} label={updatedSinceText} date={updatedSince} size={nested ? 'small' : 'medium'} />
             </span>
@@ -435,7 +434,11 @@ class Search extends React.Component {
               <FilterButton count={size(appliedFacets)} onClick={this.toggleFacetsDrawer} disabled={isDisabledFilters} label='More Filters' size={nested ? 'small' : 'medium'} />
             </span>
             {
-              !isTable && <span style={{paddingRight: '4px'}}>
+              isTable ?
+              <span>
+                <BestMatchSort selected={sortParams} onSelect={this.onSortChange} size={nested ? 'small' : 'medium'} />
+              </span> :
+              <span style={{paddingRight: '4px'}}>
                 <SortButton onChange={this.onSortChange} size={nested ? 'small' : 'medium'} resource={resource} sortOn={sortOn} sortBy={sortBy} />
               </span>
             }
@@ -527,14 +530,11 @@ class Search extends React.Component {
                 !noNav && (
                   shouldShowNewResourceComponent ?
                   newResourceComponent :
-                  <ButtonGroup size="small" color="primary" aria-label="outlined primary button group">
-                    <Button style={{padding: 0}} onClick={() => this.onPageNavButtonClick(false)} disabled={!hasPrev}>
-                      <NavigateBeforeIcon width="10" />
-                    </Button>
-                    <Button style={{padding: 0}} onClick={() => this.onPageNavButtonClick(true)} disabled={!hasNext}>
-                      <NavigateNextIcon width="10" />
-                    </Button>
-                  </ButtonGroup>
+                  <NavigationButtonGroup
+                    onClick={this.onPageNavButtonClick}
+                    prev={hasPrev}
+                    next={hasNext}
+                  />
                 )
               }
             </span>

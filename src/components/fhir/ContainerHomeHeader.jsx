@@ -1,11 +1,13 @@
 import React from 'react';
 import {
   List as ListIcon,
+  Loyalty as LoyaltyIcon,
 } from '@material-ui/icons';
 import { isEmpty, keys, map, startCase, get } from 'lodash';
 import { nonEmptyCount } from '../../common/utils';
 import OwnerButton from '../common/OwnerButton';
 import SourceButton from '../common/SourceButton';
+import CollectionButton from '../common/CollectionButton';
 import LastUpdatedOnLabel from '../common/LastUpdatedOnLabel';
 import LinkLabel from '../common/LinkLabel';
 import CustomAttributesPopup from '../common/CustomAttributesPopup';
@@ -27,12 +29,14 @@ const HIDDEN_ATTRIBUTES = {
   release_date: 'date',
 }
 
-const CodeSystemHomeHeader = ({source, url}) => {
-  const hasManyHiddenAttributes = nonEmptyCount(source, keys(HIDDEN_ATTRIBUTES)) >= 4;
+const ContainerHomeHeader = ({source, url, parentURL, resource}) => {
+  const hasManyHiddenAttributes = nonEmptyCount(source, keys(HIDDEN_ATTRIBUTES)) >= 1;
   const status = get(source, 'status', '').toLowerCase()
   const isRetired = status === 'retired';
   const shortCode = source.id
   const lastUpdated = get(source, 'meta.lastUpdated')
+  const isCodeSystem = resource === 'CodeSystem'
+  const icon = isCodeSystem ? <ListIcon className='default-svg' /> : <LoyaltyIcon className='default-svg' />;
 
   return (
     <header className='home-header col-md-12'>
@@ -40,14 +44,18 @@ const CodeSystemHomeHeader = ({source, url}) => {
         <div className='no-side-padding col-md-1 home-icon'>
           <HeaderLogo
             logoURL={source.logo_url}
-            defaultIcon={<ListIcon className='default-svg' />}
+            defaultIcon={icon}
           />
         </div>
         <div className='col-md-11'>
           <div className='col-md-12 no-side-padding flex-vertical-center'>
-            <OwnerButton {...source} href='/' />
+            <OwnerButton {...source} href={parentURL} />
             <span className='separator'>/</span>
-            <SourceButton label={shortCode} href={url} />
+            {
+              isCodeSystem ?
+              <SourceButton label={shortCode} href={url} /> :
+              <CollectionButton label={shortCode} href={url} />
+            }
             {
               isRetired &&
               <span style={{marginLeft: '10px'}}>
@@ -109,4 +117,4 @@ const CodeSystemHomeHeader = ({source, url}) => {
   )
 }
 
-export default CodeSystemHomeHeader;
+export default ContainerHomeHeader;

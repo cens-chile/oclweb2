@@ -2,7 +2,7 @@
 import React from 'react';
 import { Route, Switch } from 'react-router-dom';
 import ReactGA from 'react-ga';
-import { isFHIRServer } from '../../common/utils';
+import { isFHIRServer, isLoggedIn } from '../../common/utils';
 import Search from '../search/Search';
 import ConceptHome from '../concepts/ConceptHome';
 import ConceptsComparison from '../concepts/ConceptsComparison';
@@ -16,14 +16,24 @@ import Signup from '../users/Signup';
 import EmailVerification from '../users/EmailVerification';
 import ForgotPasswordRequest from '../users/ForgotPasswordRequest';
 import ForgotPasswordForm from '../users/ForgotPasswordForm';
+import ImportHome from '../imports/ImportHome';
 import NotFound from '../common/NotFound';
 import ErrorBoundary from '../common/ErrorBoundary';
+import AccessDenied from '../common/AccessDenied';
 import Fhir from '../fhir/Fhir';
-import CodeSystemHome from '../fhir/CodeSystemHome';
+import ContainerHome from '../fhir/ContainerHome';
 import Header from './Header';
 import Footer from './Footer';
 import RootView from './RootView';
 import './App.scss';
+
+
+const AuthenticationRequiredRoute = ({component: Component, ...rest}) => (
+  <Route
+    {...rest}
+    render={props => isLoggedIn() ? <Component {...props} /> : <AccessDenied />}
+  />
+)
 
 const App = props => {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -37,8 +47,10 @@ const App = props => {
     "storage",
     event => {
       if(event.key === 'token' && !event.newValue) {
-        localStorage.clear();
-        window.location = '/';
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if(!get(localstorage, 'server'))
+          window.location = '/';
       }
     });
 
@@ -57,6 +69,7 @@ const App = props => {
           <Switch>
             <Route exact path="/" component={isFHIR ? Fhir : RootView} />
             <Route path="/search" component={isFHIR ? Fhir : Search} />
+            <AuthenticationRequiredRoute path="/imports" component={ImportHome} />
 
             { /* Concept Home */ }
             <Route
@@ -176,10 +189,32 @@ const App = props => {
             <Route exact path="/accounts/password/reset" component={ForgotPasswordRequest} />
             <Route exact path="/accounts/:user([a-zA-Z0-9\-\.\_]+)/password/reset/:token([a-zA-Z0-9\-\.\_]+)" component={ForgotPasswordForm} />
             <Route exact path="/accounts/:user([a-zA-Z0-9\-\.\_]+)/verify/:token([a-zA-Z0-9\-\.\_]+)" component={EmailVerification} />
-            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/versions" component={CodeSystemHome} />
-            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/about" component={CodeSystemHome} />
-            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/code" component={CodeSystemHome} />
-            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)" component={CodeSystemHome} />
+
+            {/* FHIR */}
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/code" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/about" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/versions" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/code" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/about" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/versions" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)" component={ContainerHome} />
+            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/versions" component={ContainerHome} />
+            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/about" component={ContainerHome} />
+            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)/code" component={ContainerHome} />
+            <Route path="/fhir/CodeSystem/:id([a-zA-Z0-9\-\.\_]+)" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/code" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/about" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/versions" component={ContainerHome} />
+            <Route path="/fhir/orgs/:org([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/code" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/about" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/versions" component={ContainerHome} />
+            <Route path="/fhir/users/:user([a-zA-Z0-9\-\.\_]+)/ValueSet/:id([a-zA-Z0-9\-\.\_]+)" component={ContainerHome} />
+            <Route path="/fhir/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/versions" component={ContainerHome} />
+            <Route path="/fhir/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/about" component={ContainerHome} />
+            <Route path="/fhir/ValueSet/:id([a-zA-Z0-9\-\.\_]+)/code" component={ContainerHome} />
+            <Route path="/fhir/ValueSet/:id([a-zA-Z0-9\-\.\_]+)" component={ContainerHome} />
             <Route path="/fhir" component={Fhir} />
             <Route component={NotFound} />
           </Switch>

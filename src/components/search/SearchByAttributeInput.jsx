@@ -7,23 +7,29 @@ import {
 } from '@material-ui/icons';
 import { map, get } from 'lodash';
 
-const DEFAULT_FHIR_ATTRIBUTE = {id: 'name', label: 'Name'}
+const DEFAULT_HAPI_FHIR_ATTRIBUTE = {id: 'name', label: 'Name'}
+const DEFAULT_OCL_FHIR_ATTRIBUTE =  {id: 'status', label: 'Status'}
 
-const FHIR_ATTRIBUTES = [
+const HAPI_FHIR_ATTRIBUTES = [
   {id: '_id', label: 'id'},
   {id: 'date', label: 'Release Date'},
   {id: 'status', label: 'Status'},
-  DEFAULT_FHIR_ATTRIBUTE,
+  DEFAULT_HAPI_FHIR_ATTRIBUTE,
   {id: 'version', label: 'Version'},
   {id: 'description', label: 'Description'},
+]
+const OCL_FHIR_ATTRIBUTESS = [
+  DEFAULT_OCL_FHIR_ATTRIBUTE,
+  {id: 'content-mode', label: 'Content Mode'},
+  {id: 'publisher', label: 'Publisher'},
 ]
 class SearchByAttributeInput extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       input: '',
-      attrs: FHIR_ATTRIBUTES,
-      selectedAttribute: DEFAULT_FHIR_ATTRIBUTE,
+      attrs: props.hapi ? HAPI_FHIR_ATTRIBUTES : OCL_FHIR_ATTRIBUTESS,
+      selectedAttribute: props.hapi ? DEFAULT_HAPI_FHIR_ATTRIBUTE : DEFAULT_OCL_FHIR_ATTRIBUTE,
       anchorEl: null,
     }
   }
@@ -52,38 +58,45 @@ class SearchByAttributeInput extends React.Component {
 
   render() {
     const { attrs, input, selectedAttribute, anchorEl } = this.state;
-    const { searchInputPlaceholder } = this.props;
+    const { searchInputPlaceholder, fhir, hapi, resource } = this.props;
+    const isDisabled = fhir && !hapi && resource === 'ValueSet';
+    const placeholder = isDisabled ? 'Coming soon...' : (searchInputPlaceholder || "Search OCL")
 
     return (
       <div className='col-sm-12 no-side-padding'>
         <div className='col-sm-12 no-side-padding' style={{marginBottom: '0px', display: 'flex', alignItems: 'center', border: '1px solid darkgray', borderRadius: '4px'}}>
-          <Button className='search-attribute-menu-button' color='primary' variant='text' startIcon={<MenuIcon fontSize='inherit'/>} onClick={this.toggleAnchorEl}>
+          <Button disabled={isDisabled} className='search-attribute-menu-button' color='primary' variant='text' startIcon={<MenuIcon fontSize='inherit'/>} onClick={this.toggleAnchorEl}>
             {get(selectedAttribute, 'label')}
           </Button>
           <InputBase
             style={{flex: 1, marginLeft: '10px'}}
-            placeholder={searchInputPlaceholder || "Search OCL"}
+            placeholder={placeholder}
             inputProps={{ 'aria-label': 'search ocl' }}
             value={input || ''}
             fullWidth
             onChange={this.handleInputChange}
             onKeyPress={this.handleKeyPress}
+            disabled={isDisabled}
           />
           {
             input &&
             <React.Fragment>
-            <Tooltip title='Clear'>
-              <IconButton type="submit" style={{padding: '10px'}} aria-label="clear" onClick={this.clearSearch}>
-                <ClearIcon />
-              </IconButton>
-            </Tooltip>
-            <Divider style={{height: '28px', margin: '4px'}} orientation="vertical" />
+              <Tooltip title='Clear'>
+                <span>
+                  <IconButton disabled={isDisabled} type="submit" style={{padding: '10px'}} aria-label="clear" onClick={this.clearSearch}>
+                    <ClearIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Divider style={{height: '28px', margin: '4px'}} orientation="vertical" />
             </React.Fragment>
           }
           <Tooltip title='Search'>
-            <IconButton type="submit" style={{padding: '10px'}} aria-label="search" onClick={this.performSearch}>
-              <SearchIcon />
-            </IconButton>
+            <span>
+              <IconButton disabled={isDisabled} type="submit" style={{padding: '10px'}} aria-label="search" onClick={this.performSearch}>
+                <SearchIcon />
+              </IconButton>
+            </span>
           </Tooltip>
         </div>
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={this.toggleAnchorEl}>

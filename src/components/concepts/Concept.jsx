@@ -16,7 +16,7 @@ const Concept = props => {
 
   return (
     <div className='col-sm-12' style={merge({paddingTop: '10px', paddingLeft: 0, paddingRight: 0}, get(props, 'style', {}))}>
-      <Link to={props.url} style={{display: 'inline-block'}} target="_blank">
+      <Link to={props.url} style={{display: 'inline-block'}}>
         <ResourceLabel
           owner={props.owner} parent={props.source} id={props.display_name} name={props.id}
           icon={<LocalOfferIcon fontSize='small' style={{width: '10pt', color: DARKGRAY}}/>}
@@ -33,7 +33,7 @@ const Concept = props => {
                   {label}:
                 </span>
                 <span className='resource-value' style={{marginRight: '0px'}}>
-                  {get(props, attr, 'None')}
+                  {get(props, attr, '')}
                 </span>
                 {i < fields.length - 1 && <span style={{marginRight: '5px'}}>, </span>}
               </React.Fragment>

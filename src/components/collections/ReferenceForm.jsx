@@ -4,8 +4,11 @@ import { Button, Switch, FormControlLabel } from '@material-ui/core';
 import { set, get, isEmpty, isNumber, isNaN, cloneDeep, pullAt, find, map, compact } from 'lodash';
 import APIService from '../../services/APIService';
 import { SOURCE_CHILD_URI_REGEX } from '../../common/constants';
+import { isConcept } from '../../common/utils';
 import URLReferenceForm from './URLReferenceForm';
 import ResourceReferenceForm from './ResourceReferenceForm';
+import AddReferencesResult from './AddReferencesResult';
+
 const EXPRESSION_MODEL = {uri: '', valid: false, count: undefined, error: ''}
 
 class ReferenceForm extends React.Component {
@@ -13,8 +16,8 @@ class ReferenceForm extends React.Component {
     super(props);
     this.expressionRegex = new RegExp(SOURCE_CHILD_URI_REGEX);
     this.state = {
+      result: null,
       byURL: false,
-      owners: [],
       fields: {
         concepts: [],
         mappings: [],
@@ -22,22 +25,6 @@ class ReferenceForm extends React.Component {
       },
       fieldErrors: {},
     }
-  }
-
-  componentDidMount() {
-    this.fetchOwners();
-  }
-
-  fetchOwners() {
-    APIService.orgs().get().then(response => {
-      const orgs = map(response.data, org => ({...org, ownerType: 'org', name: org.id}))
-      this.setState({owners: [...this.state.owners, ...orgs]})
-    })
-
-    APIService.users().get().then(response => {
-      const users = map(response.data, user => ({...user, ownerType: 'user', name: user.username}))
-      this.setState({owners: [...this.state.owners, ...users]})
-    })
   }
 
   onSwitchChange = event => this.setState({
@@ -92,7 +79,8 @@ class ReferenceForm extends React.Component {
     const newState = {...this.state};
     const expression = get(newState.fields.expressions, index)
     if(expression.uri) {
-      APIService.concepts().head(null, null, {uri: expression.uri}).then(response => {
+      const service = isConcept(expression.uri) ? APIService.concept() : APIService.mappings()
+      service.head(null, null, {uri: expression.uri}).then(response => {
         if(get(response, 'status') === 200) {
           const found = parseInt(get(response, 'headers.num_found'))
           expression.count = (!isNaN(found) && isNumber(found)) ? found : undefined
@@ -125,15 +113,8 @@ class ReferenceForm extends React.Component {
   }
 
   handleSubmitResponse(response) {
-    const { reloadOnSuccess, onCancel } = this.props
     if(response.status === 200) { // success
-      const successMsg = `Successfully added reference(s)`;
-      const message = reloadOnSuccess ? successMsg + '. Reloading..' : successMsg;
-      onCancel();
-      alertifyjs.success(message, 1, () => {
-        if(reloadOnSuccess)
-          window.location.reload()
-      })
+      this.setState({result: response.data})
     } else { // error
       const genericError = get(response, '__all__')
       if(genericError) {
@@ -152,9 +133,16 @@ class ReferenceForm extends React.Component {
     this.setState({fields: {...this.state.fields, expressions: refs}})
   }
 
+  onResultClose = () => {
+    const isAnyAdded = Boolean(find(this.state.result, {added: true}))
+    this.props.onCancel();
+    if(this.props.reloadOnSuccess && isAnyAdded)
+      window.location.reload()
+  }
+
   render() {
-    const { byURL, fields, owners } = this.state;
-    const { onCancel } = this.props;
+    const { byURL, fields, result } = this.state;
+    const { onCancel, collection } = this.props;
     const header = `Add Reference(s)`;
     return (
       <div className='col-md-12' style={{marginBottom: '30px'}}>
@@ -187,10 +175,16 @@ class ReferenceForm extends React.Component {
                 onBlur={this.onExpressionBlur}
                 onDelete={this.onExpressionDelete}
               /> :
-              <ResourceReferenceForm owners={owners} onChange={this.onExpressionChange} />
+              <ResourceReferenceForm onChange={this.onExpressionChange} />
             }
           </form>
         </div>
+        <AddReferencesResult
+          title={`Add to Collection: ${collection.id}`}
+          open={Boolean(result)}
+          onClose={this.onResultClose}
+          result={result}
+        />
       </div>
     )
   }

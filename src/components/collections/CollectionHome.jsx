@@ -5,6 +5,8 @@ import APIService from '../../services/APIService';
 import CollectionHomeHeader from './CollectionHomeHeader';
 import CollectionHomeTabs from './CollectionHomeTabs';
 import NotFound from '../common/NotFound';
+import AccessDenied from '../common/AccessDenied';
+import PermissionDenied from '../common/PermissionDenied';
 
 const TABS = ['details', 'concepts', 'mappings', 'references', 'versions', 'about']
 const DEFAULT_CONFIG = {
@@ -27,7 +29,10 @@ class CollectionHome extends React.Component {
     super(props);
     this.state = {
       notFound: false,
+      accessDenied: false,
+      permissionDenied: false,
       isLoading: true,
+      isLoadingVersions: true,
       collection: {},
       versions: [],
       tab: this.getDefaultTabIndex(),
@@ -107,12 +112,14 @@ class CollectionHome extends React.Component {
   }
 
   getVersions() {
+    this.setState({isLoadingVersions: true}, () => {
     APIService.new()
               .overrideURL(this.getVersionedObjectURLFromPath() + 'versions/')
               .get(null, null, {verbose: true})
               .then(response => {
-                this.setState({versions: response.data})
+                this.setState({versions: response.data, isLoadingVersions: false})
               })
+    })
   }
 
   onTabChange = (event, value) => {
@@ -123,13 +130,17 @@ class CollectionHome extends React.Component {
   }
 
   refreshDataByURL() {
-    this.setState({isLoading: true, notFound: false}, () => {
+    this.setState({isLoading: true, notFound: false, accessDenied: false, permissionDenied: false}, () => {
       APIService.new()
                 .overrideURL(this.getURLFromPath())
                 .get(null, null, {includeSummary: true, includeClientConfigs: true})
                 .then(response => {
                   if(get(response, 'detail') === "Not found.")
-                    this.setState({isLoading: false, notFound: true, collection: {}})
+                    this.setState({isLoading: false, notFound: true, collection: {}, accessDenied: false, permissionDenied: false})
+                  else if(get(response, 'detail') === "Authentication credentials were not provided.")
+                    this.setState({isLoading: false, notFound: false, collection: {}, accessDenied: true, permissionDenied: false})
+                  else if(get(response, 'detail') === "You do not have permission to perform this action.")
+                    this.setState({isLoading: false, notFound: false, collection: {}, accessDenied: false, permissionDenied: true})
                   else if(!isObject(response))
                     this.setState({isLoading: false}, () => {throw response})
                   else {
@@ -173,52 +184,58 @@ class CollectionHome extends React.Component {
 
   onVersionUpdate = updatedVersion => {
     const newState = {...this.state}
+    const oldVersion = find(newState.versions, {uuid: updatedVersion.uuid})
     const index = findIndex(newState.versions, {uuid: updatedVersion.uuid})
+    if(!updatedVersion.summary)
+      updatedVersion.summary = oldVersion.summary
+
     newState.versions.splice(index, 1, updatedVersion)
     this.setState(newState)
   }
 
   render() {
     const {
-      collection, versions, isLoading, tab, selectedConfig, customConfigs, notFound
+      collection, versions, isLoading, tab, selectedConfig, customConfigs,
+      notFound, accessDenied, permissionDenied, isLoadingVersions
     } = this.state;
     const currentURL = this.getURLFromPath()
     const versionedObjectURL = this.getVersionedObjectURLFromPath()
     const showAboutTab = this.shouldShowAboutTab();
+    const hasError = notFound || accessDenied || permissionDenied;
     return (
       <div style={isLoading ? {textAlign: 'center', marginTop: '40px'} : {}}>
+        { isLoading && <CircularProgress color='primary' /> }
+        { notFound && <NotFound /> }
+        { accessDenied && <AccessDenied /> }
+        { permissionDenied && <PermissionDenied /> }
         {
-          isLoading ?
-          <CircularProgress color='primary' /> :
-          (
-            notFound ?
-            <NotFound /> :
-            <div className='col-md-12 home-container no-side-padding'>
-              <CollectionHomeHeader
-                collection={collection}
-                isVersionedObject={this.isVersionedObject()}
-                versionedObjectURL={versionedObjectURL}
-                currentURL={currentURL}
-              />
-              <CollectionHomeTabs
-                tab={tab}
-                onTabChange={this.onTabChange}
-                collection={collection}
-                versions={versions}
-                match={this.props.match}
-                location={this.props.location}
-                versionedObjectURL={versionedObjectURL}
-                currentVersion={this.getCurrentVersion()}
-                aboutTab={showAboutTab}
-                onVersionUpdate={this.onVersionUpdate}
-                customConfigs={[...customConfigs, DEFAULT_CONFIG]}
-                onConfigChange={this.onConfigChange}
-                selectedConfig={selectedConfig}
-                showConfigSelection={this.customConfigFeatureApplicable()}
-                isOCLDefaultConfigSelected={isEqual(selectedConfig, DEFAULT_CONFIG)}
-              />
-            </div>
-          )
+          !isLoading && !hasError &&
+          <div className='col-md-12 home-container no-side-padding'>
+            <CollectionHomeHeader
+              collection={collection}
+              isVersionedObject={this.isVersionedObject()}
+              versionedObjectURL={versionedObjectURL}
+              currentURL={currentURL}
+            />
+            <CollectionHomeTabs
+              tab={tab}
+              onTabChange={this.onTabChange}
+              collection={collection}
+              versions={versions}
+              match={this.props.match}
+              location={this.props.location}
+              versionedObjectURL={versionedObjectURL}
+              currentVersion={this.getCurrentVersion()}
+              aboutTab={showAboutTab}
+              onVersionUpdate={this.onVersionUpdate}
+              customConfigs={[...customConfigs, DEFAULT_CONFIG]}
+              onConfigChange={this.onConfigChange}
+              selectedConfig={selectedConfig}
+              showConfigSelection={this.customConfigFeatureApplicable()}
+              isOCLDefaultConfigSelected={isEqual(selectedConfig, DEFAULT_CONFIG)}
+              isLoadingVersions={isLoadingVersions}
+            />
+          </div>
         }
       </div>
     )

@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Info as AboutIcon,
-  Announcement as BlogIcon,
+  Chat as BlogIcon,
   People as CommunityIcon,
   AccountBalance as ArchCommunityCallIcon,
   DeveloperMode as DevCommunityCallIcon,
@@ -12,12 +12,12 @@ import {
   CloudCircle as MetadataClearinghouseIcon,
   Build as ToolsIcon,
   Web as MetadataBrowserIcon,
-  ImportExport as TerminologyServiceIcon,
-  Help as ContactIcon
+  Code as TerminologyServiceIcon,
+  ContactSupport as ContactIcon
 } from '@material-ui/icons';
 import OpenMRSLogo from '../common/OpenMRSLogo';
 
-export const MARKETING_SITE_URL = 'https://aws.openconceptlab.org/';
+export const MARKETING_SITE_URL = 'https://openconceptlab.org/';
 const COMMUNITY_OPTIONS = [
   {
     label: 'Architecture Community Call',
@@ -57,7 +57,7 @@ const COMMUNITY_OPTIONS = [
 ];
 const TOOLS_OPTIONS = [
   {
-    label: 'Metadata Browser',
+    label: 'TermBrowser',
     href: MARKETING_SITE_URL + 'ocl-tools/metadata-browser/',
     icon: <MetadataBrowserIcon />
   },
@@ -85,9 +85,10 @@ export const OPTIONS = [
     href: MARKETING_SITE_URL + 'community-resources/'
   },
   {
-    label: 'Metadata Clearinghouse',
+    label: 'OCL Online',
     icon: <MetadataClearinghouseIcon color='primary' />,
-    selected: true
+    selected: true,
+    tooltip: 'OCL Online: Hosted terminology service'
   },
   {
     label: 'Tools',

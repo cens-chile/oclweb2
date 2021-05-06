@@ -22,7 +22,7 @@ const Source = props => {
   return (
     <div className='col-sm-12' style={merge({paddingTop: '10px', paddingLeft: 0, paddingRight: 0}, get(props, 'style', {}))}>
       <div className={mainClass}>
-        <Link to={props.url} style={{display: 'inline-block'}} target="_blank">
+        <Link to={props.url} style={{display: 'inline-block'}}>
           <ResourceLabel
             owner={props.owner} id={props.id} name={props.name}
             icon={<ListIcon fontSize='small' style={{width: '10pt', color: DARKGRAY}}/>}
@@ -37,7 +37,7 @@ const Source = props => {
               return (
                 <React.Fragment key={attr}>
                   <span className='resource-attr'>{label}:</span>
-                  <span className='resource-value'>{get(props, attr, 'None')}</span>
+                  <span className='resource-value'>{get(props, attr, '')}</span>
                   <br/>
                 </React.Fragment>
               )
