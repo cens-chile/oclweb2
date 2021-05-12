@@ -1,13 +1,17 @@
 import React from 'react';
+import { ButtonGroup, Tooltip, Button } from '@material-ui/core'
 import {
+  FileCopy as CopyIcon,
   List as ListIcon,
   Loyalty as LoyaltyIcon,
+  Link as LinkIcon
 } from '@material-ui/icons';
 import { isEmpty, keys, map, startCase, get } from 'lodash';
-import { nonEmptyCount } from '../../common/utils';
+import { nonEmptyCount, copyURL, toFullAPIURL } from '../../common/utils';
 import OwnerButton from '../common/OwnerButton';
 import SourceButton from '../common/SourceButton';
 import CollectionButton from '../common/CollectionButton';
+import ConceptMapButton from '../common/ConceptMapButton';
 import LastUpdatedOnLabel from '../common/LastUpdatedOnLabel';
 import LinkLabel from '../common/LinkLabel';
 import CustomAttributesPopup from '../common/CustomAttributesPopup';
@@ -15,6 +19,7 @@ import CollapsibleAttributes from '../common/CollapsibleAttributes';
 import HeaderAttribute from '../common/HeaderAttribute';
 import HeaderLogo from '../common/HeaderLogo';
 import RetiredChip from '../common/RetiredChip';
+import DownloadButton from '../common/DownloadButton';
 
 const HIDDEN_ATTRIBUTES = {
   canonical_url: 'url',
@@ -29,14 +34,33 @@ const HIDDEN_ATTRIBUTES = {
   release_date: 'date',
 }
 
-const ContainerHomeHeader = ({source, url, parentURL, resource}) => {
+const ContainerHomeHeader = ({source, url, parentURL, resource, serverURL}) => {
   const hasManyHiddenAttributes = nonEmptyCount(source, keys(HIDDEN_ATTRIBUTES)) >= 1;
   const status = get(source, 'status', '').toLowerCase()
   const isRetired = status === 'retired';
   const shortCode = source.id
   const lastUpdated = get(source, 'meta.lastUpdated')
   const isCodeSystem = resource === 'CodeSystem'
-  const icon = isCodeSystem ? <ListIcon className='default-svg' /> : <LoyaltyIcon className='default-svg' />;
+  const isValueSet = resource === 'ValueSet'
+  const isConceptMap = resource === 'ConceptMap'
+  const getIcon = () => {
+    if(isCodeSystem)
+      return <ListIcon className='default-svg' />;
+    if(isValueSet)
+      return <LoyaltyIcon className='default-svg' />;
+    if(isConceptMap)
+      return <LinkIcon className='default-svg' />;
+  }
+  const getResourceButton = () => {
+    if(isCodeSystem)
+      return <SourceButton label={shortCode} href={url} />;
+    if(isValueSet)
+      return <CollectionButton label={shortCode} href={url} />;
+    if(isConceptMap)
+      return <ConceptMapButton label={shortCode} href={url} />;
+  }
+
+  const onCopyClick = () => copyURL(toFullAPIURL(serverURL))
 
   return (
     <header className='home-header col-md-12'>
@@ -44,24 +68,30 @@ const ContainerHomeHeader = ({source, url, parentURL, resource}) => {
         <div className='no-side-padding col-md-1 home-icon'>
           <HeaderLogo
             logoURL={source.logo_url}
-            defaultIcon={icon}
+            defaultIcon={getIcon()}
           />
         </div>
         <div className='col-md-11'>
           <div className='col-md-12 no-side-padding flex-vertical-center'>
             <OwnerButton {...source} href={parentURL} />
             <span className='separator'>/</span>
-            {
-              isCodeSystem ?
-              <SourceButton label={shortCode} href={url} /> :
-              <CollectionButton label={shortCode} href={url} />
-            }
+            { getResourceButton() }
             {
               isRetired &&
               <span style={{marginLeft: '10px'}}>
                 <RetiredChip size='small' />
               </span>
             }
+            <span style={{marginLeft: '15px'}}>
+              <ButtonGroup variant='text' size='large'>
+                <Tooltip title="Copy URL">
+                  <Button onClick={onCopyClick}>
+                    <CopyIcon fontSize="inherit" />
+                  </Button>
+                </Tooltip>
+                <DownloadButton resource={source} formats={['json']} />
+              </ButtonGroup>
+            </span>
           </div>
           <div className='col-md-12 no-side-padding flex-vertical-center home-resource-full-name'>
             <span style={{marginRight: '10px'}}>

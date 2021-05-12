@@ -21,7 +21,7 @@ export const formatDate = date => moment(date).format(DATE_FORMAT);
 
 export const formatDateTime = date => moment(date).format(DATETIME_FORMAT);
 
-export const formatWebsiteLink = (value, style) => {
+export const formatWebsiteLink = (value, style, text) => {
   if(value && value.trim()) {
     let href = value.trim();
     if(!href.startsWith('http://') && !href.startsWith('https://'))
@@ -34,7 +34,7 @@ export const formatWebsiteLink = (value, style) => {
         href={href}
         className="ellipsis-text"
         style={merge({maxWidth: '100px'}, (style || {}))}>
-        {value.trim()}
+        {text || value.trim()}
       </a>
     );
   }
@@ -88,7 +88,8 @@ export const toFullURL = uri => window.location.origin + '/#' + uri;
 
 export const toFullAPIURL = uri => {
   /*eslint no-undef: 0*/
-  const APIURL = window.API_URL || process.env.API_URL;
+  const config = getAppliedServerConfig()
+  const APIURL = config.url;
   return APIURL + uri;
 }
 
