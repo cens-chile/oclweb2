@@ -13,7 +13,7 @@ const ConceptDetailsLocale = ({ locale, isDescription, url }) => {
   const onCopyClick = () => copyURL(toFullAPIURL(url))
 
   return (
-    <div className='col-md-12 flex-vertical-center' style={{marginBottom: '10px'}}>
+    <div className='col-md-12 flex-vertical-center'>
       <div className='col-md-11 no-left-padding'>
         <div className='col-md-12 no-side-padding flex-vertical-center'>
           <span style={{marginRight: '10px'}}>{ get(locale, nameAttr) }</span>
@@ -27,7 +27,7 @@ const ConceptDetailsLocale = ({ locale, isDescription, url }) => {
           {
             locale.locale_preferred &&
             <span style={{marginRight: '5px'}}>
-              <Tooltip title={`Preferred ${nameAttr} for this locale`} placement='top-start'>
+              <Tooltip arrow title={`Preferred ${nameAttr} for this locale`} placement='top-start'>
                 <FlagIcon color='secondary' fontSize='small' style={{width: '18px', marginTop: '4px'}}/>
               </Tooltip>
             </span>
@@ -39,7 +39,7 @@ const ConceptDetailsLocale = ({ locale, isDescription, url }) => {
         }
       </div>
       <div className='col-md-1 no-right-padding'>
-        <Tooltip title='Copy Link' placement='right'>
+        <Tooltip arrow title='Copy Link' placement='right'>
           <IconButton onClick={onCopyClick} color='primary' size='small'>
             <CopyIcon fontSize='inherit' />
           </IconButton>

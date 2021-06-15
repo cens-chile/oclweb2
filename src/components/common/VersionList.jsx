@@ -3,14 +3,16 @@ import {
   Accordion, AccordionSummary, AccordionDetails, Typography, Divider, Tooltip,
   IconButton, Button, Checkbox
 } from '@material-ui/core';
-import { map, isEmpty, startCase, uniq, without} from 'lodash';
+import { map, isEmpty, startCase, uniq, without, orderBy } from 'lodash';
 import {
   ExpandMore as ExpandMoreIcon, Search as SearchIcon,
   CompareArrows as CompareArrowsIcon,
 } from '@material-ui/icons';
-import { headFirst } from '../../common/utils';
 import LastUpdatedOnLabel from './LastUpdatedOnLabel';
 import Tip from './Tip';
+import SourceChildVersionAssociationWithContainer from './SourceChildVersionAssociationWithContainer';
+import RetiredChip from '../common/RetiredChip';
+
 
 const ACCORDIAN_HEADING_STYLES = {
   fontWeight: 'bold',
@@ -24,7 +26,7 @@ const None = () => {
 }
 
 const VersionList = ({ versions, resource }) => {
-  const sortedVersions = headFirst(versions);
+  const sortedVersions = orderBy(versions, 'version_created_on', 'desc');
 
   const [selectedList, setSelectedList] = React.useState([]);
   const onSelectChange = (event, id) => {
@@ -43,6 +45,8 @@ const VersionList = ({ versions, resource }) => {
     const url = `#/concepts/compare?lhs=${selectedList[0]}&rhs=${selectedList[1]}`
     window.open(url, '_blank')
   }
+
+  const isAssociated = version => !isEmpty(version.source_versions) || !isEmpty(version.collection_versions)
 
   return (
     <div className='col-md-12'>
@@ -78,46 +82,65 @@ const VersionList = ({ versions, resource }) => {
             {
               isEmpty(sortedVersions) ?
               None() :
-              map(sortedVersions, (version, index) => (
-                <React.Fragment key={index}>
-                  <div className='col-md-12 flex-vertical-center'>
-                    {
-                      canSelect &&
-                      <div className='col-md-1 no-side-padding'>
-                        <Checkbox size='small' onChange={event => onSelectChange(event, version.version_url)} />
-                      </div>
-                    }
-                    <div className={`${gridClass} no-side-padding flex-vertical-center`} style={{margin: '10px 0'}}>
-                      <div className='col-md-11 no-left-padding'>
-                        <div className='col-md-12 no-side-padding'>
+              map(sortedVersions, (version, index) => {
+                const isRetired = version.retired
+                return (
+                  <React.Fragment key={index}>
+                    <div className='col-md-12 flex-vertical-center'>
+                      {
+                        canSelect &&
+                        <div className='col-md-1 no-side-padding'>
+                          <Checkbox size='small' onChange={event => onSelectChange(event, version.version_url)} />
+                        </div>
+                      }
+                      <div className={`${gridClass} no-side-padding flex-vertical-center`} style={{margin: '10px 0'}}>
+                        <div className='col-md-11 no-left-padding flex-vertical-center'>
+                          <div className={isRetired ? 'col-md-10 no-side-padding' : 'col-md-12 no-side-padding'}>
+                            <div className='col-md-12 no-side-padding'>
+                              {
+                                version.update_comment ?
+                                <span>{version.update_comment}</span> :
+                                <span className='gray-italics-small'>No update comment</span>
+                              }
+                            </div>
+                            <div className='col-md-12 no-side-padding' style={{marginTop: '5px'}}>
+                              <LastUpdatedOnLabel
+                                by={version.version_created_by}
+                                date={version.version_created_on}
+                              />
+                            </div>
+                          </div>
                           {
-                            version.update_comment ?
-                            <span>{version.update_comment}</span> :
-                            <span className='gray-italics-small'>No update comment</span>
+                            isRetired &&
+                            <div className='col-md-2 no-right-padding'>
+                              <RetiredChip size='small' />
+                            </div>
                           }
                         </div>
-                        <div className='col-md-12 no-side-padding'>
-                          <LastUpdatedOnLabel
-                            by={version.version_created_by}
-                            date={version.version_created_on}
-                          />
+                        <div className='col-md-1 no-right-padding'>
+                          <Tooltip arrow title='Version Link'>
+                            <IconButton href={`#${version.version_url}`} color='primary' size='small'>
+                              <SearchIcon fontSize='inherit' />
+                            </IconButton>
+                          </Tooltip>
                         </div>
                       </div>
-                      <div className='col-md-1 no-right-padding'>
-                        <Tooltip title='Version Link'>
-                          <IconButton href={`#${version.version_url}`} color='primary' size='small'>
-                            <SearchIcon fontSize='inherit' />
-                          </IconButton>
-                        </Tooltip>
-                      </div>
                     </div>
-                  </div>
-                  {
-                    (index + 1) < versions.length &&
-                    <Divider style={{width: '100%'}} />
-                  }
-                </React.Fragment>
-              ))
+                    <div className='col-md-12 no-side-padding' style={{textAlign: 'center', marginTop: '-15px'}}>
+                      <SourceChildVersionAssociationWithContainer
+                        associatedWith={{
+                          source: version.source_versions,
+                          collection: version.collection_versions
+                        }}
+                      />
+                    </div>
+                    {
+                      !isAssociated(version) && ((index + 1) < versions.length) &&
+                      <Divider style={{width: '100%'}} />
+                    }
+                  </React.Fragment>
+                )
+              })
             }
           </AccordionDetails>
         </Accordion>

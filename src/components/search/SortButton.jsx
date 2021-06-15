@@ -50,11 +50,7 @@ class SortButton extends React.Component {
   getOptions() {
     const { resource } = this.props;
     const sortables = get(SORT_ATTRS, resource) || []
-    return map(sortables, attr => {
-      if(attr === 'score')
-        return {name: 'Best Match', id: 'score'}
-      return {name: startCase(attr), id: attr}
-    })
+    return map(sortables, attr => ({name: this.formatOptionName(attr), id: attr}))
   }
 
   isAsc() {
@@ -82,7 +78,7 @@ class SortButton extends React.Component {
   }
 
   handleMenuItemClick = value => {
-    if(includes(['name', 'username'], value) && value !== this.state.selectedOption)
+    if(includes(['name', 'username', 'numeric_id'], value) && value !== this.state.selectedOption)
       this.setState({sortBy: ASC, selectedOption: value}, this.propogate)
     else
       this.setSelectedOption(value || 'score');
@@ -115,6 +111,17 @@ class SortButton extends React.Component {
     return selectedOption === 'score' ? 'Best Match' : startCase(selectedOption)
   }
 
+  formatOptionName(option) {
+    if(option === 'score')
+      return 'Best Match'
+    if(option === 'id')
+      return 'ID'
+    if(option === 'numeric_id')
+      return 'ID (numerically)'
+
+    return startCase(option)
+  }
+
   render() {
     const { open, selectedOption } = this.state;
     const { size } = this.props;
@@ -123,7 +130,7 @@ class SortButton extends React.Component {
     const options = this.getOptions()
     return (
       <span>
-        <Tooltip title='Sort By'>
+        <Tooltip arrow title='Sort By'>
           <Chip
             ref={this.anchorRef}
             variant="outlined"

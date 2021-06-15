@@ -8,7 +8,7 @@ import {
   Home as HomeIcon,
   Loyalty as LoyaltyIcon,
 } from '@material-ui/icons'
-import { get, find, isEmpty } from 'lodash';
+import { get, find, isEmpty, flatten, compact } from 'lodash';
 import {
   formatDate, formatWebsiteLink, formatDateTime
 } from '../../common/utils';
@@ -148,13 +148,18 @@ const CONCEPT_CONTAINER_TAGS = [
     hrefAttr: 'versions_url'
   },
 ]
+
+const getOCLFHIRResourceURL = item => {
+  const identifiers = flatten([get(item, 'resource.identifier', [])])
+  return '/fhir/' + compact(get(find(identifiers, ident => get(ident, 'system', '').match('fhir.')), 'value', '').split('/')).splice(0, 4).join('/')
+}
 const CODE_SYSTEM_TAGS = [
   {
     id: 'count',
     getValue: item => (get(item, 'resource.count') || (get(item, 'resource.concept', []) || []).length).toLocaleString(),
     label: 'Concepts',
     icon: <LocalOfferIcon fontSize='small' style={TAG_ICON_STYLES} />,
-    hrefAttr: (item, hapi) => hapi ? `/fhir/CodeSystem/${item.resource.id}/` : `/fhir${get(item, 'resource.identifier.0.value', '').split('/version/')[0]}`
+    hrefAttr: (item, hapi) => hapi ? `/fhir/CodeSystem/${item.resource.id}/` : getOCLFHIRResourceURL(item)
   },
 ]
 const VALUE_SET_TAGS = [
@@ -168,7 +173,7 @@ const VALUE_SET_TAGS = [
     },
     label: 'Concepts',
     icon: <LocalOfferIcon fontSize='small' style={TAG_ICON_STYLES} />,
-    hrefAttr: (item, hapi) => hapi ? `/fhir/ValueSet/${item.resource.id}/` : `/fhir${get(item, 'resource.identifier.0.value', '').split('/version/')[0]}`
+    hrefAttr: (item, hapi) => hapi ? `/fhir/ValueSet/${item.resource.id}/` : getOCLFHIRResourceURL(item)
   },
 ]
 
@@ -228,7 +233,7 @@ export const FACET_ORDER = {
 }
 
 export const SORT_ATTRS = {
-  concepts: ['score', 'last_update', 'id', '_name', 'concept_class', 'datatype', 'source', 'owner'],
+  concepts: ['score', 'last_update', 'id', 'numeric_id', '_name', 'concept_class', 'datatype', 'source', 'owner'],
   mappings: ['score', 'last_update', 'id', 'map_type', 'source', 'owner'],
   users: ['score', 'username', 'date_joined', 'company', 'location'],
   organizations: ['score', 'last_update', 'name', 'mnemonic'],

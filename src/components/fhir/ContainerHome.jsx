@@ -49,8 +49,9 @@ class ContainerHome extends React.Component {
     const currentURL = isHAPI ?
                        `/fhir/${this.URLAttr}/${props.match.params.id}` :
                        window.location.hash.split('?')[0].replace('#', '');
+
     const serverURL = isHAPI ?
-                      `${server.info.baseURI}/${this.URLAttr}/${props.match.params.id}` :
+                      `${server.info.baseURI}${this.URLAttr}/${props.match.params.id}` :
                       window.location.hash.split('?')[0].replace('#/fhir', '');
     this.state = {
       server: server,
@@ -121,9 +122,8 @@ class ContainerHome extends React.Component {
   }
 
   getCurrentPage = data => {
-    const links = get(data, 'link', [])
-    const selfLink = get(find(links, {relation: 'self'}), 'url')
-    if(selfLink !== 'null') {
+    const selfLink = this.getSelfLink(data);
+    if(selfLink) {
       const query = new URLSearchParams(selfLink.split('?')[1])
       const page = query.get('page')
       if(page)
@@ -132,13 +132,39 @@ class ContainerHome extends React.Component {
     return 1
   }
 
+  getSelfLink = data => {
+    const links = get(data, 'link', [])
+    const selfLink = get(find(links, {relation: 'self'}), 'url')
+    if(selfLink !== 'null')
+      return selfLink
+  }
+
+  getOwner = data => {
+    const selfLink = this.getSelfLink(data)
+    let ownerType;
+    let owner;
+    let ownerURL;
+    if(selfLink.match('/orgs/')){
+      ownerType = 'Organization'
+      owner = get(get(selfLink.split('/orgs/'), '1', '').split('/'), '0')
+      ownerURL = `/orgs/${owner}/`
+    }
+    else if (selfLink.match('/users/')) {
+      ownerType = 'User'
+      owner = get(get(selfLink.split('/users/'), '1', '').split('/'), '0')
+      ownerURL = `/users/${owner}/`
+    }
+    if(ownerType && owner)
+      return {ownerType: ownerType, owner: owner, ownerURL: ownerURL}
+  }
+
   getTotalPages = total => {
     const pages = Math.ceil(total/100);
     return pages < 1 ? 1 : pages
   }
 
   refreshDataByURL(loadingCodes = false) {
-    const { isHAPI, versions, codes } = this.state;
+    const { isHAPI, versions, codes, server } = this.state;
     this.setState({isLoading: !loadingCodes, notFound: false}, () => {
       const queryParams = isHAPI ? {} : {page: codes.pageNumber};
       APIService.new()
@@ -151,13 +177,14 @@ class ContainerHome extends React.Component {
                     this.setState({isLoading: false}, () => {throw response})
                   else {
                     const resource = isHAPI ? response.data : get(response, 'data.entry.0.resource');
+                    const owner = isHAPI ? {owner: server.info.org.id} : this.getOwner(response.data)
                     const concepts = get(resource, 'concept') ||
                                      get(find(get(resource, 'compose.include', []), inc => !isEmpty(get(inc, 'concept'))), 'concept') || [];
                     const total = get(resource, 'count') || concepts.length || 0;
                     this.setState({
                       isLoadingCodes: false,
                       isLoading: false,
-                      resource: resource,
+                      resource: {...resource, ...owner},
                       codes: {
                         systems: get(resource, 'compose.include', []),
                         results: concepts,
@@ -183,10 +210,10 @@ class ContainerHome extends React.Component {
 
   render() {
     const {
-      resource, codes, versions, isLoading, tab, notFound, server, isHAPI, url, selectedConfig,
+      resource, codes, versions, isLoading, tab, notFound, isHAPI, url, selectedConfig,
       isLoadingCodes, serverUrl
     } = this.state;
-    const source = {...resource, owner: server.info.org.id, canonical_url: resource.url, release_date: resource.date};
+    const source = {...resource, canonical_url: resource.url, release_date: resource.date};
 
     return (
       <div style={isLoading ? {textAlign: 'center', marginTop: '40px'} : {}}>
@@ -203,6 +230,7 @@ class ContainerHome extends React.Component {
                 url={`#${url}`}
                 parentURL={`/fhir/${this.URLAttr}`}
                 serverURL={serverUrl}
+                isHAPI={isHAPI}
               />
               <ContainerHomeTabs
                 resource={this.URLAttr}

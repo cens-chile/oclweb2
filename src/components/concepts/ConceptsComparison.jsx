@@ -170,7 +170,7 @@ class ConceptsComparison extends React.Component {
     if(uri && attr && loadingAttr) {
       const { isVersion } = this.state;
       const isAnyVersion = isVersion || uri.match(/\//g).length === 8;
-      APIService.new().overrideURL(uri).get(null, null, {includeInverseMappings: true}).then(response => {
+      APIService.new().overrideURL(encodeURI(uri)).get(null, null, {includeInverseMappings: true}).then(response => {
         if(get(response, 'status') === 200) {
           const newState = {...this.state}
           newState[attr] = this.formatConcept(response.data)
@@ -212,12 +212,12 @@ class ConceptsComparison extends React.Component {
   }
 
   sortLocales = locales => {
-    return [
+    return sortBy([
       ...filter(locales, {name_type: 'FULLY_SPECIFIED', locale_preferred: true}),
       ...filter(reject(locales, {name_type: 'FULLY_SPECIFIED'}), {locale_preferred: true}),
       ...filter(locales, {name_type: 'FULLY_SPECIFIED', locale_preferred: false}),
       ...reject(reject(locales, {name_type: 'FULLY_SPECIFIED'}), {locale_preferred: true}),
-    ]
+    ], 'locale')
   }
 
   getHeaderSubAttributes(concept) {
@@ -393,7 +393,7 @@ class ConceptsComparison extends React.Component {
           {this.getHeaderSubAttributes(concept)}
         </div>
         <div style={{fontSize: '18px'}}>
-          <Link to={concept.url}>{concept.display_name}</Link>
+          <Link to={encodeURI(concept.url)}>{concept.display_name}</Link>
         </div>
       </TableCell>
     )
@@ -416,7 +416,7 @@ class ConceptsComparison extends React.Component {
                 <TableHead>
                   <TableRow colSpan="12">
                     <TableCell colSpan="2" style={{width: '10%'}}>
-                      <Tooltip title='Customize attributes' placement='top'>
+                      <Tooltip arrow title='Customize attributes' placement='top'>
                         <IconButton onClick={this.onDrawerClick}>
                           <SettingsIcon />
                         </IconButton>

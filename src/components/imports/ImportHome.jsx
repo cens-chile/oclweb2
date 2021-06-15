@@ -120,22 +120,24 @@ class ImportHome extends React.Component {
     const PAPER_STYLES = {padding: '0 10px 10px 10px', display: 'inline-block', width: '100%', margin: '10px 0'}
     return (
       <div className='col-md-12'>
-        <div className='col-md-6 no-left-padding'>
-          <Paper style={PAPER_STYLES}>
-            <NewImport onUploadSuccess={() => this.fetchImports()} />
-          </Paper>
-        </div>
-        <div className='col-md-6 no-side-padding'>
-          <Paper style={PAPER_STYLES}>
-            <ExistingImports
-              tasks={tasks}
-              isLoading={isLoadingImports}
-              onRefresh={() => this.fetchImports()}
-              onRevoke={this.onRevokeTask}
-              onDownload={this.onDownloadTask}
-              error={importListError}
-            />
-          </Paper>
+        <div className='col-md-12 no-side-padding'>
+          <div className='col-md-6 no-left-padding'>
+            <Paper style={PAPER_STYLES}>
+              <NewImport onUploadSuccess={() => this.fetchImports()} />
+            </Paper>
+          </div>
+          <div className='col-md-6 no-side-padding'>
+            <Paper style={PAPER_STYLES}>
+              <ExistingImports
+                tasks={tasks}
+                isLoading={isLoadingImports}
+                onRefresh={() => this.fetchImports()}
+                onRevoke={this.onRevokeTask}
+                onDownload={this.onDownloadTask}
+                error={importListError}
+              />
+            </Paper>
+          </div>
         </div>
       </div>
     )

@@ -1,12 +1,22 @@
 import React from 'react';
 import alertifyjs from 'alertifyjs';
-import { get, map, set, findIndex, cloneDeep, find, reject, values, isEmpty } from 'lodash';
 import {
-  TextField, Button, Select, MenuItem, FormControl, InputLabel,
-  FormHelperText
+  get, set, findIndex, cloneDeep, find, reject, values, isEmpty, isArray, isNumber,
+  isEqual
+} from 'lodash';
+import Autocomplete from '@material-ui/lab/Autocomplete';
+import {
+  TextField, Button, MenuItem,
+  FormHelperText, IconButton, Menu, MenuList, Chip
 } from '@material-ui/core';
+import {
+  Visibility as PreviewIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+  MoreVert as MenuIcon,
+} from '@material-ui/icons';
 import APIService from '../../services/APIService';
-import { ORANGE } from '../../common/constants';
+import { ORANGE, WHITE } from '../../common/constants';
 import JSONEditor from './JSONEditor';
 
 const DEFAULT_STATE = {
@@ -20,29 +30,56 @@ const NEW_CONFIG = {id: 'new', name: 'New Configuration'};
 class ViewConfigForm extends React.Component {
   constructor(props) {
     super(props);
+    const initialConfig = get(props.previewFields, 'config') ? cloneDeep(props.previewFields.config) : cloneDeep(get(props.selected, 'config', {}));
+    this.menuRef = React.createRef();
     this.state = {
-      initialConfig: cloneDeep(get(props.selected, 'config', {})),
+      resource: props.resource,
+      templates: [],
+      initialConfig: initialConfig,
       selected: props.selected,
-      selectedConfig: findIndex(props.configs, props.selected),
-      fields: cloneDeep(DEFAULT_STATE),
+      selectedConfig: findIndex([...props.configs, NEW_CONFIG], props.selected),
+      fields: props.previewFields ? cloneDeep(props.previewFields) : cloneDeep(DEFAULT_STATE),
       errors: null,
+      menu: false,
+      configs: props.configs,
     }
+  }
+
+  fetchTemplates() {
+    const { resource } = this.state;
+    if(resource) {
+      APIService.new().overrideURL(`/client-configs/${resource}/templates/`).get().then(response => this.setState({templates: isArray(response.data) ? response.data : []}))
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    if(!isEqual(prevProps.configs, this.props.configs))
+      this.setState({configs: this.props.configs})
   }
 
   componentDidMount() {
     this.setFieldsForEdit()
+    this.fetchTemplates()
   }
 
   setFieldsForEdit() {
+    const { previewFields } = this.props;
     const { selected } = this.state;
     const newState = {...this.state}
     const attrs = ['name', 'layout', 'page_size', 'config', 'is_default']
-    attrs.forEach(attr => set(newState, `fields.${attr}`, get(selected, attr)))
-    newState.initialConfig = cloneDeep(get(selected, 'config', {}))
+    attrs.forEach(
+      attr => {
+        if(isEmpty(previewFields))
+          set(newState, `fields.${attr}`, get(selected, attr))
+        else
+          set(newState, `fields.${attr}`, get(previewFields, attr))
+      }
+    )
+    newState.initialConfig = get(previewFields, 'config') ? cloneDeep(previewFields.config) : cloneDeep(get(selected, 'config', {}))
     this.setState(newState)
   }
 
-  setFieldValue(id, value) {
+  setFieldValue(id, value, callback) {
     const newState = {...this.state}
     set(newState, id, value)
     this.setState(newState, () => {
@@ -51,16 +88,14 @@ class ViewConfigForm extends React.Component {
         this.setState({fields: cloneDeep(DEFAULT_STATE)}) :
         this.setFieldsForEdit()
       }
+      if(callback) callback();
     })
   }
 
-  onTextFieldChange = event => {
-    this.setFieldValue(event.target.id, event.target.value)
-  }
+  onTextFieldChange = event => this.setFieldValue(event.target.id, event.target.value)
 
   getDefaultCheckboxHelperText() {
-    const { configs } = this.props;
-    const { selected, fields } = this.state;
+    const { selected, fields, configs } = this.state;
     const existingDefaultConfigOtherThanSelected = find(reject(configs, {name: selected.name}), {is_default: true});
 
     if(existingDefaultConfigOtherThanSelected && fields.is_default)
@@ -133,11 +168,13 @@ class ViewConfigForm extends React.Component {
     newState.fields.is_default = false
     newState.fields.config = selected.config
     newState.selected = NEW_CONFIG;
+    newState.menu = false
     this.setState(newState);
   }
 
-  toggleDefault() {
+  toggleDefault = () => {
     this.setFieldValue('fields.is_default', !this.state.fields.is_default)
+    this.setState({menu: false})
   }
 
   onConfigurationChange(config) {
@@ -149,11 +186,15 @@ class ViewConfigForm extends React.Component {
     newState.fields.config = config.config
     newState.fields.is_default = config.is_default
     this.setState(newState, () => {
-      this.setState({initialConfig: cloneDeep(get(config, 'config', {}))})
+      this.setState({initialConfig: cloneDeep(get(config, 'config', {}))}, () => {
+        if(config.id !== 'new')
+          this.props.onChange(this.state.fields)
+      })
     })
   }
 
-  onDelete() {
+  onDelete = () => {
+    this.setState({menu: false})
     alertifyjs.confirm(
       `Delete Configuration: ${this.state.selected.name}`,
       'Are you sure you want to delete this?',
@@ -167,69 +208,123 @@ class ViewConfigForm extends React.Component {
     return isEmpty(errors) ? '' : values(errors).join('\n')
   }
 
+  onJSONUpdate = value => {
+    this.setFieldValue('fields.config', value.jsObject, () => {
+      if(!value.error && this.props.onChange) {
+        this.props.onChange(this.state.fields)
+      }
+    })
+  }
+
+  togglePreview = () => {
+    this.props.onCancel()
+    this.props.onPreview({fields: this.state.fields, selected: this.state.selected})
+  }
+
+  onCancel = () => {
+    this.props.onPreview(null)
+    this.props.onCancel()
+  }
+
   render() {
-    const { configs } = this.props;
-    const { selected, fields, initialConfig, errors } = this.state;
+    const { selected, fields, initialConfig, errors, menu, configs, templates } = this.state;
     const isOCLDefaultConfigSelected = get(selected, 'web_default');
-    const configOptions = [...configs, NEW_CONFIG];
+    const isTemplateSelected = get(selected, 'is_template');
+    const configOptions = [...configs, ...templates, NEW_CONFIG];
     const isNew = get(selected, 'id') === 'new';
     const isDefault = fields.is_default;
     return (
-      <div className='col-md-12' style={{marginBottom: '30px'}}>
+      <div className='col-md-12' style={{marginBottom: '30px', textAlign: 'left'}}>
         <div className='col-md-12 no-side-padding'>
-          <h2>Manage View Configurations</h2>
+          <h2>Manage Configurations</h2>
         </div>
-        <div className='col-md-6 no-side-padding' style={{marginTop: '15px'}}>
-          <FormControl variant="outlined" fullWidth>
-            <InputLabel>Select Configuration</InputLabel>
-            <Select
-              required
-              id="config"
+        <div className='col-md-12 no-side-padding flex-vertical-center'>
+          <div className='col-md-11 no-side-padding' style={{}}>
+            <Autocomplete
+              openOnFocus
+              getOptionSelected={(option, value) => option.id === get(value, 'id')}
               value={findIndex(configOptions, selected)}
-              onChange={event => this.onConfigurationChange(configOptions[event.target.value])}
-              label="Existing Configuration"
-            >
-              {
-                map(configOptions, (config, index) => (
-                  <MenuItem key={index} value={index}>
-                    {
-                      config.id === 'new' ?
-                      <i>{config.name}</i> :
-                      config.name
-                    }
-                  </MenuItem>
-                ))
+              id="config"
+              options={configOptions}
+              getOptionLabel={option => {
+                  let opt = option
+                  if(isNumber(opt))
+                    opt = get(configOptions, opt)
+
+                  return get(opt, 'name', '')
+              }}
+              fullWidth
+              required
+              renderInput={
+                params => <TextField
+                            {...params}
+                            required
+                            label="Select"
+                                   variant="outlined"
+                                   fullWidth
+                />
               }
-            </Select>
-          </FormControl>
+              onChange={(event, item) => this.onConfigurationChange(item)}
+              closeIcon={false}
+              renderOption={
+                option => (
+                  <React.Fragment>
+                    <span className='flex-vertical-center'>
+                      {
+                        option.id === 'new' ?
+                        <i>{option.name}</i> :
+                        <span>{option.name}</span>
+                      }
+                      {
+                        option.is_template &&
+                        <span style={{marginLeft: '10px'}}>
+                          <Chip style={{backgroundColor: ORANGE, color: WHITE, border: `1px solid ${ORANGE}`, fontSize: '10px'}} label="Template" size='small' />
+                        </span>
+                      }
+
+                    </span>
+                  </React.Fragment>
+                )
+              }
+            />
+          </div>
+          <div className='col-md-1 no-side-padding' style={{marginLeft: '5px'}}>
+            <IconButton size='small' ref={this.menuRef} onClick={() => this.setState({menu: !menu})}>
+              <MenuIcon />
+            </IconButton>
+          </div>
         </div>
-        <div className="col-md-6 no-right-padding flex-vertical-center" style={{marginTop: '15px', height: '56px'}}>
-          {
-            !isOCLDefaultConfigSelected &&
-            <Button size="small" color={isDefault ? 'primary' : 'default'} variant="outlined" onClick={() => this.toggleDefault()}>
-              {isDefault ? 'Un-Default': 'Default'}
-            </Button>
-          }
-          {
-            !isOCLDefaultConfigSelected &&
-            <Button style={{marginLeft: '4px'}} size="small" variant="outlined" onClick={() => this.onDelete()}>
-              Delete
-            </Button>
-          }
-          {
-            !isNew &&
-            <Button style={{marginLeft: '4px'}} size="small" variant="outlined" onClick={this.moveToCreateSimilar}>Create Similar</Button>
-          }
-        </div>
-        <div className="col-md-12 no-side-padding">
+        <div className='col-md-12 no-side-padding' style={{marginBottom: '35px'}}>
           {this.getDefaultCheckboxHelperText()}
         </div>
-        <div className='col-md-12 no-side-padding' style={{marginTop: '15px'}}>
+        {
+          menu &&
+          <Menu open anchorEl={this.menuRef.current} onClose={() => this.setState({menu: false})}>
+            <MenuList id="split-button-menu">
+              {
+                !isOCLDefaultConfigSelected && !isTemplateSelected &&
+                <MenuItem onClick={this.toggleDefault}>
+                  {isDefault ? 'Un-Default': 'Mark Default'}
+                </MenuItem>
+              }
+              {
+                !isNew &&
+                <MenuItem onClick={this.moveToCreateSimilar}>
+                  Create Similar
+                </MenuItem>
+              }
+              {
+                !isOCLDefaultConfigSelected && !isTemplateSelected &&
+                <MenuItem onClick={this.onDelete}>
+                  Delete
+                </MenuItem>
+              }
+            </MenuList>
+          </Menu>
+        }
+        <div className='col-md-12 no-side-padding' style={{}}>
           <form>
-            <div className='col-md-12 no-side-padding' style={{width: '100%'}}>
-              <h3 className="form-subheading">View/Edit Configuration</h3>
-            </div>
-            <div className='col-md-12 no-side-padding' style={{marginTop: '15px'}}>
+            <div className='col-md-12 no-side-padding' style={{}}>
               <TextField
                 error={!isEmpty(errors)}
                 id="fields.name"
@@ -240,22 +335,26 @@ class ViewConfigForm extends React.Component {
                 required
                 onChange={this.onTextFieldChange}
                 value={fields.name}
-                disabled={isOCLDefaultConfigSelected}
+                disabled={isOCLDefaultConfigSelected || isTemplateSelected}
                 helperText={this.getErrorHelperText()}
+                size='small'
               />
             </div>
             <div className='col-md-12 no-side-padding' style={{marginTop: '5px', width: '100%'}}>
               <JSONEditor
                 placeholder={initialConfig}
-                viewOnly={isOCLDefaultConfigSelected}
-                onChange={value => this.setFieldValue('fields.config', value.jsObject) }
+                viewOnly={isOCLDefaultConfigSelected ||  isTemplateSelected}
+                onChange={this.onJSONUpdate}
               />
             </div>
-            <div className='col-md-12' style={{textAlign: 'center', margin: '15px 0'}}>
-              <Button style={{margin: '0 10px'}} color='primary' variant='outlined' type='submit' onClick={this.onSubmit}>
+            <div className='col-md-12 no-side-padding' style={{textAlign: 'center', margin: '10px 0'}}>
+              <Button size='small' style={{margin: '2px'}} color='primary' variant='outlined' onClick={this.togglePreview} startIcon={<PreviewIcon fontSize='inherit' />}>
+                Preview
+              </Button>
+              <Button size='small' className='green-btn-outlined' style={{margin: '2px'}} variant='outlined' type='submit' onClick={this.onSubmit} startIcon={<SaveIcon fontSize='inherit' />} disabled={isOCLDefaultConfigSelected || isTemplateSelected}>
                 {isNew ? 'Create' : 'Update'}
               </Button>
-              <Button style={{margin: '0 10px'}} variant='outlined' onClick={this.props.onCancel}>
+              <Button size='small' className='red-btn-outlined' style={{margin: '2px'}} variant='outlined' onClick={this.onCancel} startIcon={<CancelIcon fontSize='inherit' />}>
                 Cancel
               </Button>
             </div>

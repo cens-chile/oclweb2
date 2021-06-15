@@ -11,7 +11,7 @@ import {
   arrayToObject, getCurrentURL, fetchLocales, fetchConceptClasses, fetchDatatypes, fetchNameTypes,
   fetchDescriptionTypes
 } from '../../common/utils';
-import { ERROR_RED } from '../../common/constants';
+import { ERROR_RED, CONCEPT_CODE_REGEX } from '../../common/constants';
 import LocaleForm from './LocaleForm';
 import ExtrasForm from '../common/ExtrasForm';
 
@@ -83,25 +83,28 @@ class ConceptForm extends React.Component {
   }
 
   getIdHelperText() {
-    const id = this.state.fields.id || "[concept-id]"
+    const defaultId = "[concept-id]"
+    const id = this.state.fields.id
     return (
       <span>
-        <span>Alphanumeric characters, @, hyphens, periods, and underscores are allowed.</span>
-        <br />
-        <span>
-          <span>Your new concept will live at: <br />
-            {
-              `${getCurrentURL()}/concepts/`
-            }
-          </span>
-          <span><b>{id}</b>/</span>
+        <span>Your new concept will live at: <br />
+          {
+            `${getCurrentURL()}/concepts/`
+          }
         </span>
+        <span><b>{id ? encodeURIComponent(id) : defaultId}</b>/</span>
       </span>
     )
   }
 
   onTextFieldChange = event => {
     this.setFieldValue(event.target.id, event.target.value)
+  }
+
+  onIdFieldBlur = event => {
+    const el = event.target
+    if(el)
+      el.reportValidity()
   }
 
   onAutoCompleteChange = (id, item) => {
@@ -189,7 +192,7 @@ class ConceptForm extends React.Component {
       fields.extras = arrayToObject(fields.extras)
       fields.names = this.cleanLocales(fields.names)
       fields.descriptions = this.cleanLocales(fields.descriptions)
-      let service = APIService.new().overrideURL(parentURL)
+      let service = APIService.new().overrideURL(encodeURI(parentURL))
       if(edit) {
         service.put(fields).then(response => this.handleSubmitResponse(response))
       } else {
@@ -238,6 +241,7 @@ class ConceptForm extends React.Component {
     const isLoading = isEmpty(descriptionTypes) || isEmpty(datatypes) || isEmpty(locales) || isEmpty(conceptClasses) || isEmpty(nameTypes);
     const { onCancel, edit } = this.props;
     const header = edit ? `Edit Concept: ${fields.id}` : 'New Concept'
+
     return (
       <div className='col-md-12' style={{marginBottom: '30px'}}>
         <div className='col-md-12 no-side-padding'>
@@ -263,9 +267,10 @@ class ConceptForm extends React.Component {
                     fullWidth
                     required
                     onChange={this.onTextFieldChange}
+                    onBlur={this.onIdFieldBlur}
                     value={fields.id}
                     disabled={edit}
-                    inputProps={{ pattern: "[a-zA-Z0-9-._@]+" }}
+                    inputProps={{ pattern: CONCEPT_CODE_REGEX }}
                   />
                 </div>
               }
@@ -344,14 +349,14 @@ class ConceptForm extends React.Component {
                   map(fields.parent_concept_urls, (url, index) => (
                     <div className='col-md-12 no-side-padding' key={index} style={index > 0 ? {marginTop: '5px', width: '100%'} : {width: '100%'}}>
                       <div className='col-md-10 no-left-padding'>
-                      <TextField
-                        id={`fields.parent_concept_urls.${index}`}
-                        label="Parent Concept URL"
-                        variant="outlined"
-                        fullWidth
-                        onChange={this.onTextFieldChange}
-                        value={get(fields, `parent_concept_urls.${index}`)}
-                      />
+                        <TextField
+                          id={`fields.parent_concept_urls.${index}`}
+                          label="Parent Concept URL"
+                          variant="outlined"
+                          fullWidth
+                          onChange={this.onTextFieldChange}
+                          value={get(fields, `parent_concept_urls.${index}`)}
+                        />
                       </div>
                       <div className='col-md-2 no-right-padding'>
                         <IconButton style={{}} onClick={() => this.onDeleteParentConceptURL(index)}><DeleteIcon /></IconButton>

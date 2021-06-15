@@ -13,7 +13,7 @@ export const SERVER_CONFIGS = [
   },
   {
     id: 3,
-    name: 'OCL DEMO',
+    name: 'OCL Demo',
     type: 'ocl',
     url: 'https://api.demo.openconceptlab.org'
   },
@@ -40,12 +40,13 @@ export const SERVER_CONFIGS = [
     name: 'FHIR QA',
     type: 'fhir',
     url: 'https://fhir.qa.openconceptlab.org',
+    hapi: false,
     info: {
       baseURI: '/fhir/',
       type: 'HAPI FHIR 5.0.0 REST Server (FHIR Server; FHIR 4.0.1/R4)',
       org: {
-        id: 'PEPFAR',
-        name: "The United States President's Emergency Plan for AIDS Relief",
+        id: 'FHIR',
+        name: "Fast Healthcare Interoperability Resources",
         logo_url: '/fhir.svg'
       }
     }
@@ -55,13 +56,14 @@ export const SERVER_CONFIGS = [
     name: 'FHIR Staging',
     type: 'fhir',
     url: 'https://fhir.staging.openconceptlab.org',
+    hapi: false,
     info: {
       pageSize: 10,
       baseURI: '/fhir/',
       type: 'HAPI FHIR 5.0.0 REST Server (FHIR Server; FHIR 4.0.1/R4)',
       org: {
-        id: 'PEPFAR',
-        name: "The United States President's Emergency Plan for AIDS Relief",
+        id: 'FHIR',
+        name: "Fast Healthcare Interoperability Resources",
         logo_url: '/fhir.svg'
       }
     }
@@ -76,8 +78,8 @@ export const SERVER_CONFIGS = [
       baseURI: '/baseR4/',
       type: 'HAPI FHIR 5.0.0 REST Server (FHIR Server; FHIR 4.0.1/R4)',
       org: {
-        id: 'PEPFAR',
-        name: "The United States President's Emergency Plan for AIDS Relief",
+        id: 'FHIR',
+        name: "Fast Healthcare Interoperability Resources",
         logo_url: '/fhir.svg'
       }
     }

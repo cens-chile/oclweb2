@@ -1,3 +1,12 @@
+@media only screen and (max-width: 600px) {
+    div#left-menu-collapsed {
+        display: none !important;
+    }
+    main.content {
+        width: 100%;
+        margin-left: 0px;
+    }
+}
 .content {
     margin-top: 65px;
     margin-bottom: 50px;
@@ -182,6 +191,7 @@ td.pagination-center {
     font-style: italic;
 }
 .home-icon {
+    text-align: center;
     color: #e5e5e5;
     cursor: pointer;
     &.concept {
@@ -207,6 +217,12 @@ td.pagination-center {
         width: 48px;
         color: rgb(253, 164, 41);
     }
+    &.small {
+        height: 70px;
+    }
+    &.xsmall {
+        height: 35px;
+    }
     .default-svg {
         width: 60px;
         height: 60px;
@@ -216,12 +232,14 @@ td.pagination-center {
     background-color: #fafbfc;
     padding-top: 3px;
     padding-bottom: 3px;
-    border-bottom: 1px solid #e5e5e5;
-    margin-bottom: 15px;
 }
 span.separator {
     font-size: 18pt;
     padding: 0 10px
+}
+span.separator-small {
+    font-size: 14pt;
+    padding: 0 5px
 }
 .container {
     padding-right: 15px;
@@ -314,6 +332,9 @@ div.bottom-fixed-center {
     font-size: 20px;
     font-weight: bold;
     padding-bottom: 7px;
+    &.small {
+        font-size: 18px;
+    }
 }
 .clickable {
     cursor: pointer !important;
@@ -380,6 +401,9 @@ div.login-paper {
     position: relative;
     width:100%;
     max-width: 100px;
+    &.small {
+        height: 70px;
+    }
 
     img {
         display:block;
@@ -488,6 +512,14 @@ div.login-paper {
     &.medium {
         width: 50%;
         min-width: 50%;
+    }
+    &.small {
+        width: 25%;
+        min-width: 25%;
+    }
+    &.xsmall {
+        width: 20%;
+        min-width: 20%;
     }
 }
 .divider {
@@ -796,4 +828,15 @@ div.feedback-div-open {
 }
 .about-home-tab {
     table { width: 100%; }
+}
+.red-btn-outlined {
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.23);
+}
+.green-btn-outlined {
+    color: #5cb85c;
+    border: 1px solid rgba(92, 184, 92, 0.23);
+}
+div.divider-highlight-hover:hover {
+    background-color: rgba(0, 0, 0, 0.05);
 }

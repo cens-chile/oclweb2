@@ -1,7 +1,6 @@
 import React from 'react';
-import clsx from 'clsx';
 import {
-  AppBar, Toolbar, Typography, Button, Drawer, CssBaseline, List, Divider, IconButton,
+  AppBar, Toolbar, Typography, Button, Drawer, CssBaseline, List, IconButton,
   ListItem, ListItemText, Collapse, ListItemIcon, Tooltip, Paper,
   Popper, Grow, ClickAwayListener
 } from '@material-ui/core';
@@ -11,8 +10,10 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@material-ui/icons';
 import { makeStyles } from '@material-ui/core/styles';
-import { map, isEmpty } from 'lodash';
-import { isAtGlobalSearch, isLoggedIn, isServerSwitched, canSwitchServer } from '../../common/utils';
+import { map, isEmpty, get } from 'lodash';
+import {
+  isAtGlobalSearch, isLoggedIn, isServerSwitched, canSwitchServer, getAppliedServerConfig
+} from '../../common/utils';
 import { WHITE, BLACK } from '../../common/constants';
 import SearchInput from '../search/SearchInput';
 import UserOptions from '../users/UserOptions';
@@ -21,7 +22,6 @@ import Feedback from '../common/Feedback';
 import ServerConfigsChip from '../common/ServerConfigsChip';
 
 const drawerWidth = 250;
-
 const useStyles = makeStyles((theme) => ({
   root: {
     display: 'flex',
@@ -120,6 +120,8 @@ const Header = props => {
     return newOpen
   })
 
+  const isFHIRServer = get(getAppliedServerConfig(), 'type') === 'fhir';
+
   return (
     <React.Fragment>
       <CssBaseline />
@@ -127,7 +129,7 @@ const Header = props => {
         position="fixed"
         variant="outlined"
         style={{backgroundColor: WHITE, color: BLACK, borderLeft: 'none'}}
-        className={clsx(classes.appBar)}
+        className={classes.appBar}
       >
         <Toolbar style={{padding: '0 15px'}}>
           <IconButton
@@ -135,7 +137,7 @@ const Header = props => {
             aria-label="open drawer"
             onClick={toggleOpen}
             edge="start"
-            className={clsx(classes.menuButton)}
+            className={classes.menuButton}
           >
             <MenuIcon />
           </IconButton>
@@ -153,16 +155,21 @@ const Header = props => {
           <div className='col-sm-4 pull-right no-side-padding'style={{textAlign: 'right'}}>
             {
               canSwitchServer() && isServerSwitched() &&
-              <ServerConfigsChip style={{marginRight: '20px'}} />
+              <ServerConfigsChip />
             }
             {
               authenticated ?
-              <span style={{marginLeft: '10px'}}>
+              <span style={{marginLeft: '20px'}}>
                 <UserOptions />
-              </span>:
-              <Button className='primary-btn' href="/#/accounts/login" color='primary' variant='contained'>
-                Sign In
-              </Button>
+              </span> :
+              (
+                !isFHIRServer &&
+                <span style={{marginLeft: '20px'}}>
+                  <Button className='primary-btn' href="/#/accounts/login" color='primary' variant='contained'>
+                    Sign In
+                  </Button>
+                </span>
+              )
             }
           </div>
         </Toolbar>
@@ -246,6 +253,7 @@ const Header = props => {
           </div>
         </Drawer> :
         <Drawer
+          id='left-menu-collapsed'
           style={{flexShrink: 0, width: 'auto'}}
           variant="permanent"
           anchor="left"
@@ -260,13 +268,12 @@ const Header = props => {
               aria-label="open drawer"
               onClick={toggleOpen}
               edge="start"
-              className={clsx(classes.menuButton, open && classes.hide)}
+              className={open ? classes.menuButton + ' ' + classes.hide : classes.menuButton}
               style={{marginLeft: 0}}
             >
               <MenuIcon />
             </IconButton>
           </div>
-          <Divider />
           <List>
             {
               map(OPTIONS, option => {
@@ -284,7 +291,7 @@ const Header = props => {
 
                 return (
                   <React.Fragment key={label}>
-                    <Tooltip title={tooltip || label} placement='right'>
+                    <Tooltip arrow title={tooltip || label} placement='right'>
                       <ListItem
                         className='btn'
                         button

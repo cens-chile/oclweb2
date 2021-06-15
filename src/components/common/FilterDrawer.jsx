@@ -64,7 +64,12 @@ const FilterDrawer = props => {
   const [appliedFilters, setFilters] = React.useState(existingFilters);
 
   const onApplyClick = () => {
-    onApply(cloneDeep(appliedFilters))
+    const filters = cloneDeep(appliedFilters)
+    if(filters.collection_membership) {
+      filters['collection'] = filters.collection_membership
+      delete filters.collection_membership
+    }
+    onApply(filters)
     onClose()
   }
 
@@ -155,7 +160,7 @@ const FilterDrawer = props => {
             />
             {
               input &&
-              <Tooltip title='Clear'>
+              <Tooltip arrow title='Clear'>
                 <IconButton
                   type="submit"
                   style={{padding: '10px'}}
@@ -166,7 +171,7 @@ const FilterDrawer = props => {
                 </IconButton>
               </Tooltip>
             }
-            <Tooltip title='Search'>
+            <Tooltip arrow title='Search'>
               <IconButton
                 type="submit"
                 style={{padding: '10px'}}

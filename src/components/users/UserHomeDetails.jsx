@@ -8,7 +8,7 @@ import {
 import { includes, startCase, get, merge } from 'lodash';
 import APIService from '../../services/APIService';
 import {
-  formatDate, currentUserToken, formatWebsiteLink, copyToClipboard
+  formatDate, currentUserToken, formatWebsiteLink, copyToClipboard, getCurrentUserUsername
 } from '../../common/utils';
 import HeaderLogo from '../common/HeaderLogo';
 import CommonFormDrawer from '../common/CommonFormDrawer';
@@ -97,7 +97,7 @@ const UserHomeDetails = ({ user, isLoading }) => {
             token &&
             <p>
               <strong>API Token</strong>
-              <Tooltip title="Click to copy Token">
+              <Tooltip arrow title="Click to copy Token">
                 <IconButton style={{marginLeft: '10px'}} size="small" onClick={() => copyToClipboard(token, 'Token copied to clipboard!')}>
                   <CopyIcon fontSize="small" />
                 </IconButton>
@@ -111,7 +111,7 @@ const UserHomeDetails = ({ user, isLoading }) => {
         onClose={onEditClick}
         formComponent={
           <UserForm
-            loggedIn
+            loggedIn={user.username === getCurrentUserUsername()}
             edit
             reloadOnSuccess
             onCancel={onEditClose} user={user}

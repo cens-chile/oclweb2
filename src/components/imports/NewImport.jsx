@@ -7,10 +7,12 @@ import {
 import {
   CloudUpload as UploadIcon,
   Http as URLIcon,
+  Description as DocIcon
 } from '@material-ui/icons';
+import { Alert } from '@material-ui/lab';
 import { cloneDeep, get } from 'lodash';
 import APIService from '../../services/APIService';
-import { isAdminUser } from '../../common/utils';
+import { formatWebsiteLink } from '../../common/utils';
 import JSONIcon from '../common/JSONIcon';
 import FileUploader from '../common/FileUploader';
 
@@ -39,7 +41,7 @@ class NewImport extends React.Component {
     const isSelected = this.state.type === type;
     const variant = isSelected ? 'contained' : 'outlined';
     return (
-      <Tooltip title={tooltip}>
+      <Tooltip arrow title={tooltip}>
         <Button variant={variant} onClick={() => this.onTypeClick(type)}>
           {icon}
         </Button>
@@ -74,7 +76,7 @@ class NewImport extends React.Component {
   }
 
   getPayload() {
-    const { type, fileURL, json, file, workers } = this.state
+    const { type, fileURL, json, file, workers, parallel } = this.state
     if(type === 'upload'){
       const formData = new FormData()
       formData.append('file', file)
@@ -87,8 +89,15 @@ class NewImport extends React.Component {
       formData.append('parallel', workers)
       return formData
     }
-    if(type === 'json')
+    if(type === 'json') {
+      if(parallel) {
+        const formData = new FormData()
+        formData.append('parallel', workers)
+        formData.append('data', json)
+        return formData
+      }
       return json
+    }
   }
 
   getParallelService() {
@@ -100,7 +109,7 @@ class NewImport extends React.Component {
 
   getService() {
     const { type, parallel, queue } = this.state
-    if(type !== 'json' && parallel)
+    if(parallel)
       return this.getParallelService()
 
     const service = APIService.new().overrideURL('/importers/bulk-import/')
@@ -153,9 +162,9 @@ class NewImport extends React.Component {
           </span>
           <span>
             <ButtonGroup color='secondary' size='small' disabled={isUploading}>
-              { this.getButton('upload', <UploadIcon />, 'Upload JSON File') }
+              { this.getButton('upload', <UploadIcon />, 'Upload JSON/CSV File') }
               { this.getButton('json', <JSONIcon />, 'Submit JSON Data') }
-              { this.getButton('url', <URLIcon />, 'Paste File URL') }
+              { this.getButton('url', <URLIcon />, 'Paste JSON/CSV File URL') }
             </ButtonGroup>
           </span>
         </h3>
@@ -165,22 +174,21 @@ class NewImport extends React.Component {
             <CircularProgress style={{margin: '50px'}} />
           </div> :
           <div className='col-md-12 no-side-padding'>
-            {
-              !isAdminUser() &&
-              <div className='col-md-12 no-left-padding'>
-                <TextField
-                  fullWidth
-                  size='small'
-                  id='queue'
-                  variant='outlined'
-                  placeholder='e.g. my-queue'
-                  label='Queue'
-                  value={queue}
-                  onChange={event => this.setFieldValue('queue', event.target.value)}
-                />
-                <FormHelperText style={{marginLeft: '2px'}}>Custom queue name</FormHelperText>
-              </div>
-            }
+            <div className='col-md-12 no-left-padding'>
+              <TextField
+                fullWidth
+                size='small'
+                id='queue'
+                variant='outlined'
+                placeholder='e.g. my-queue'
+                label='Queue ID'
+                value={queue}
+                onChange={event => this.setFieldValue('queue', event.target.value)}
+              />
+              <FormHelperText style={{marginLeft: '2px'}}>
+                Imports that share the same queue ID are processed in sequence
+              </FormHelperText>
+            </div>
             <div className='col-md-6 no-side-padding'>
               <FormControlLabel
                 control={<Checkbox checked={update_if_exists} onChange={event => this.setFieldValue('update_if_exists', event.target.checked)} name='update_if_exists' />}
@@ -190,8 +198,6 @@ class NewImport extends React.Component {
                 Update if existing concept/mapping found
               </FormHelperText>
             </div>
-            {
-              !isJSON &&
               <div className='col-md-6 no-side-padding'>
                 <FormControlLabel
                   control={<Checkbox checked={parallel} onChange={this.onParallelToogle} name='parallel' />}
@@ -201,7 +207,6 @@ class NewImport extends React.Component {
                   Run concepts/mappings/references imports in parallel
                 </FormHelperText>
               </div>
-            }
             <div className='col-md-12 no-side-padding' style={{margin: '10px 0'}}>
               {
                 isUpload &&
@@ -209,6 +214,7 @@ class NewImport extends React.Component {
                   uploadButton={false}
                   onUpload={uploadedFile => this.setFieldValue('file', uploadedFile)}
                   onLoading={() => this.setFieldValue('file', null)}
+                  accept='application/json, application/JSON, .csv, text/comma-separated-values, text/csv, application/csv'
                 />
               }
               {
@@ -220,10 +226,9 @@ class NewImport extends React.Component {
                   type='url'
                   required
                   variant='outlined'
-                  label='JSON File URL'
+                  label='JSON/CSV File URL'
                   value={fileURL}
                   onChange={event => this.setFieldValue('fileURL', event.target.value)}
-                  style={{marginBottom: '20px'}}
                 />
               }
               {
@@ -240,7 +245,6 @@ class NewImport extends React.Component {
                   label='JSON Data'
                   value={json}
                   onChange={event => this.setFieldValue('json', event.target.value)}
-                  style={{marginBottom: '20px'}}
                 />
               }
             </div>
@@ -257,6 +261,17 @@ class NewImport extends React.Component {
           >
             Upload
           </Button>
+        </div>
+        <div className='col-md-12 no-side-padding' style={{marginTop: '10px'}}>
+          <Alert icon={<DocIcon fontSize='small' />} severity="info" className='flex-vertical-center'>
+            <span>
+              OCL processes bulk import asynchronously. A bulk import may include creates, updates, or deletes for multiple owners and repositories.&nbsp;
+              {
+                formatWebsiteLink('https://docs.openconceptlab.org/en/latest/oclapi/apireference/bulkimporting.html', null, 'Read More...')
+              }
+            </span>
+          </Alert>
+
         </div>
       </React.Fragment>
     )
